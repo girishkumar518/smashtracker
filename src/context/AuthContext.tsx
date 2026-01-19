@@ -89,15 +89,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     try {
       if (Platform.OS === 'web') {
-          console.log("Starting Google Sign In (Web)...");
+          // console.log("Starting Google Sign In (Web)...");
           const provider = new GoogleAuthProvider();
           await signInWithPopup(auth, provider);
-          console.log("Firebase Web Sign In Success");
+          // console.log("Firebase Web Sign In Success");
       } else {
-          console.log("Starting Google Sign In (Native)...");
+          // console.log("Starting Google Sign In (Native)...");
           await GoogleSignin.hasPlayServices();
           
-          console.log("Requesting Google Sign In...");
+          // console.log("Requesting Google Sign In...");
           const response = await GoogleSignin.signIn();
           
           const idToken = response.data?.idToken;
