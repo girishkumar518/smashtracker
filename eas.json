@@ -25,12 +25,12 @@
     "production": {
       "env": {
         "GOOGLE_SERVICES_FILE": "./google-services.json",
-        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDj6...",
-        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "smashtracker-3a044.firebaseapp.com",
-        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "smashtracker-3a044",
-        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "smashtracker-3a044.firebasestorage.app",
-        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "444345343511",
-        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:444345343511:android:1cf67c1024fd2c6408c652"
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyBTRZeAz69QA2kXfCx_iBS8y3oV_sD4nBo",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "smashtracker-prod.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "smashtracker-prod",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "smashtracker-prod.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "951918212136",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:951918212136:android:1960517ecb1d1e27b3f11d"
       },
       "android": {
          "buildType": "app-bundle"
@@ -39,12 +39,12 @@
     "apk": {
       "env": {
         "GOOGLE_SERVICES_FILE": "./google-services.json",
-        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDj61VZkUrNNFYfuxlGo-dlqZFbLrbrzV0",
-        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "smashtracker-3a044.firebaseapp.com",
-        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "smashtracker-3a044",
-        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "smashtracker-3a044.firebasestorage.app",
-        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "444345343511",
-        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:444345343511:android:1cf67c1024fd2c6408c652"
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyBTRZeAz69QA2kXfCx_iBS8y3oV_sD4nBo",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "smashtracker-prod.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "smashtracker-prod",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "smashtracker-prod.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "951918212136",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:951918212136:android:1960517ecb1d1e27b3f11d"
       },
       "android": {
         "buildType": "apk"
