@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Switch, Modal, FlatList, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Switch, Modal, FlatList, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import Button from '../components/Button';
 import { useNavigation } from '@react-navigation/native';
 import { useClub } from '../context/ClubContext';
@@ -13,6 +13,10 @@ export default function MatchSetupScreen() {
   const [isDoubles, setIsDoubles] = useState(false);
   const [scoreMode, setScoreMode] = useState<'live' | 'manual'>('live'); // New Mode Switch
   const [matchType, setMatchType] = useState<1 | 3>(3); // 1 = Single Set, 3 = Best of 3
+  
+  // Game Settings
+  const [pointsPerSet, setPointsPerSet] = useState<11 | 21 | 30>(21);
+  const [goldenPoint, setGoldenPoint] = useState(false); // No Deuce
 
   // Selected Players (User objects or standard placeholders)
   const [p1, setP1] = useState<User | null>(members[0]); // Default to first member (likely admin)
@@ -49,12 +53,20 @@ export default function MatchSetupScreen() {
   };
 
   const startMatch = () => {
-    const { team1, team2 } = getTeams();
-    
     // Check missing players
-    if (!p1 || (!p3 && !isDoubles) || (isDoubles && (!p2 || !p3 || !p4))) {
-     // alert('Please select all players');
+    if (isDoubles) {
+      if (!p1 || !p2 || !p3 || !p4) {
+        Alert.alert('Missing Players', 'Please select all 4 players for a doubles match.');
+        return;
+      }
+    } else {
+      if (!p1 || !p3) {
+        Alert.alert('Missing Players', 'Please select both players for a singles match.');
+        return;
+      }
     }
+
+    const { team1, team2 } = getTeams();
 
     if (scoreMode === 'live') {
       navigation.navigate('LiveScore', {
@@ -62,6 +74,8 @@ export default function MatchSetupScreen() {
         team1, // Now array of objects
         team2,
         matchType,
+        pointsPerSet,
+        goldenPoint
       });
     } else {
       navigation.navigate('ManualScore', {
@@ -133,7 +147,9 @@ export default function MatchSetupScreen() {
 
       {/* Match Config */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Match Length</Text>
+        <Text style={styles.sectionTitle}>Match Settings</Text>
+        
+        <Text style={[styles.inputLabel, {marginTop: 8}]}>Sets</Text>
         <View style={styles.modeSwitch}>
            <TouchableOpacity 
              style={[styles.modeBtn, matchType === 1 && styles.activeModeBtn]} 
@@ -145,8 +161,26 @@ export default function MatchSetupScreen() {
              style={[styles.modeBtn, matchType === 3 && styles.activeModeBtn]} 
              onPress={() => setMatchType(3)}
            >
-             <Text style={[styles.modeText, matchType === 3 && styles.activeModeText]}>Best of 3</Text>
+             <Text style={[styles.modeText, matchType === 3 && styles.activeModeText]}>3 Sets</Text>
            </TouchableOpacity>
+        </View>
+
+        <Text style={[styles.inputLabel, {marginTop: 16}]}>Points per Set</Text>
+        <View style={styles.modeSwitch}>
+           {[11, 21, 30].map(pts => (
+             <TouchableOpacity 
+               key={pts}
+               style={[styles.modeBtn, pointsPerSet === pts && styles.activeModeBtn]} 
+               onPress={() => setPointsPerSet(pts as any)}
+             >
+               <Text style={[styles.modeText, pointsPerSet === pts && styles.activeModeText]}>{pts}</Text>
+             </TouchableOpacity>
+           ))}
+        </View>
+
+        <View style={[styles.typeSelector, {marginTop: 16, backgroundColor: 'white', padding: 8, borderRadius: 8}]}>
+            <Text style={styles.typeText}>Golden Point (No Deuce)</Text>
+            <Switch value={goldenPoint} onValueChange={setGoldenPoint} trackColor={{ true: '#F6AD55' }} />
         </View>
       </View>
 

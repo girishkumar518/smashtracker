@@ -37,6 +37,10 @@ export interface Match {
   winnerTeam: 1 | 2;
   isLive: boolean; // True if currently being played
   durationSeconds?: number;
+  stats?: {
+    maxConsecutivePts: { team1: number, team2: number };
+    pointsWonOnServe: { team1: number, team2: number };
+  };
 }
 
 export interface PlayerStats {

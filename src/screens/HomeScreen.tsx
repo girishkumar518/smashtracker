@@ -191,12 +191,19 @@ export default function HomeScreen() {
             )}
             
 
+            <Button 
+              title="Start New Match" 
+              onPress={() => navigation.navigate('MatchSetup')}
+              style={{ marginTop: 24 }}
+            />
+
               {matches && matches.length > 0 && (
               <View style={{ marginTop: 24, paddingBottom: 40 }}>
                  <Text style={styles.sectionTitle}>Recent Matches</Text>
                  {matches.slice(0, 5).map((m, i) => (
                    <TouchableOpacity 
                       key={m.id || i}
+                      onPress={() => (navigation as any).navigate('MatchOverview', { match: m })}
                       onLongPress={() => {
                           if (activeClub?.ownerId === user?.id || activeClub?.members.find(mem => mem.userId === user?.id)?.role === 'admin') {
                               (navigation as any).navigate('ManualScore', { match: m, isEdit: true });
@@ -232,13 +239,6 @@ export default function HomeScreen() {
                  <Text style={{textAlign: 'center', marginTop: 8, color: '#A0AEC0', fontSize: 12}}>Long press a match to edit (Admin only)</Text>
               </View>
             )}
-
-
-            <Button 
-              title="Start New Match" 
-              onPress={() => navigation.navigate('MatchSetup')}
-              style={{ marginTop: 24 }}
-            />
           </View>
         )}
 

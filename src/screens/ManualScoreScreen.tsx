@@ -32,7 +32,7 @@ export default function ManualScoreScreen() {
   // Use existing match data if editing, else use params
   const team1 = match ? match.team1.map(id => ({id, name: getName(id)})) : params.team1;
   const team2 = match ? match.team2.map(id => ({id, name: getName(id)})) : params.team2;
-  const matchType = 3; 
+  const currentMatchType = params.matchType || 3;
 
 
   const [s1t1, setS1T1] = useState(match?.scores[0]?.team1Score.toString() || '');
@@ -159,6 +159,8 @@ export default function ManualScoreScreen() {
         </View>
       </Card>
 
+      {currentMatchType === 3 && (
+        <>
       <Card style={{marginTop: 16}}>
         <Text style={styles.setHeader}>Set 2</Text>
         <View style={styles.inputRow}>
@@ -212,6 +214,8 @@ export default function ManualScoreScreen() {
            </View>
         </View>
       </Card>
+      </>
+      )}
 
       <View style={{marginTop: 24, marginBottom: 40}}>
         <Button title={isEdit ? "Update Match" : "Save Result"} onPress={handleSubmit} />
