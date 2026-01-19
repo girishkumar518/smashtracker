@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (Platform.OS !== 'web') {
       try {
         GoogleSignin.configure({
-          webClientId: '444345343511-minptmaffa165qb3vbv4f9j0sk4nb58h.apps.googleusercontent.com', 
+          webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '951918212136-ng0b9ds0a9nofl7lkc6ic293jh1qglak.apps.googleusercontent.com', // Updated for Prod
         });
       } catch (e) {
         console.error("Google Signin Config Error:", e);
