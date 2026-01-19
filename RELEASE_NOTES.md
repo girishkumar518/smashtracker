@@ -44,3 +44,13 @@
 
 ## ⚠️ Known Requirements
 - **Google Login**: Requires the App SHA1 fingerprint (`E7:1D:22:...`) to be registered in the Firebase Console.
+
+### 5. New Features & Bug Fixes (v1.1.0)
+- **Multiple Clubs**: Users can now create, join, and switch between multiple clubs seamlessly from the Home Screen.
+- **Enhanced Invitations**: Added "Invite Members" feature.
+  - Access device contacts directly.
+  - Send Invite Codes via SMS or WhatsApp automatically.
+- **Scoring Rules**:
+  - Validated matches end at 21+ points.
+  - Undo functionality fixed to preserve set history.
+  - Added "Reset" capability for scoring.
