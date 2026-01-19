@@ -9,6 +9,8 @@
     "web": "expo start --web",
     "build": "expo export -p web",
     "build:android": "eas build --profile development --platform android",
+    "build:prod:apk": "eas build --profile apk --platform android",
+    "build:prod:aab": "eas build --profile production --platform android",
     "build:web": "expo export -p web"
   },
   "dependencies": {
