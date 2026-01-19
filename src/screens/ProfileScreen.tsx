@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, Alert, TouchableWithoutFeedback, Keyboard, ScrollView, StatusBar, SafeAreaView, TouchableOpacity } from 'react-native';
+import React, { useState, useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, TextInput, Alert, TouchableWithoutFeedback, Keyboard, ScrollView, StatusBar, SafeAreaView, TouchableOpacity, Button as NativeButton, Platform } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useClub } from '../context/ClubContext';
 import Button from '../components/Button';
@@ -7,16 +7,81 @@ import { useNavigation, CommonActions } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { FirebaseRecaptchaVerifierModal, FirebaseRecaptchaBanner } from 'expo-firebase-recaptcha';
+import app, { auth } from '../services/firebaseConfig';
+import { PhoneAuthProvider, signInWithCredential, RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 
 export default function ProfileScreen() {
-  const { user, updateProfile, deleteAccount } = useAuth();
-  const { userClubs, activeClub, setActiveClub } = useClub();
+  const { user, updateProfile, deleteAccount, isActive } = useAuth();
+  const { userClubs, activeClub, setActiveClub, invitedClubs, acceptClubInvite } = useClub();
   const [name, setName] = useState(user?.displayName || '');
+  const [phone, setPhone] = useState(user?.phoneNumber || '');
+  const [verificationId, setVerificationId] = useState<string | null>(null);
+  const [verificationCode, setVerificationCode] = useState('');
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation();
   const { theme, isDark } = useTheme();
+  
+  const recaptchaVerifier = useRef<any>(null);
+  const webConfirmationResult = useRef<any>(null);
 
   const styles = useMemo(() => createStyles(theme), [theme]);
+
+  const sendVerification = async () => {
+    if (!phone || phone.length < 10) {
+        Alert.alert("Invalid Phone", "Please enter a valid phone number with country code (e.g. +15555555555)");
+        return;
+    }
+    try {
+        if (Platform.OS === 'web') {
+            if (!recaptchaVerifier.current) {
+                recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
+                   'size': 'invisible',
+                });
+            }
+            const confirmation = await signInWithPhoneNumber(auth, phone, recaptchaVerifier.current);
+            webConfirmationResult.current = confirmation;
+            setVerificationId(confirmation.verificationId);
+        } else {
+            const phoneProvider = new PhoneAuthProvider(auth);
+            const verificationId = await phoneProvider.verifyPhoneNumber(
+                phone,
+                recaptchaVerifier.current
+            );
+            setVerificationId(verificationId);
+        }
+        Alert.alert("OTP Sent", "Please enter the 6-digit code sent to your phone.");
+    } catch (err: any) {
+        console.error(err);
+        Alert.alert("Error", `Failed to send OTP: ${err.message}`);
+    }
+  };
+
+  const confirmCode = async () => {
+      if (!verificationCode || !verificationId) return;
+      try {
+          if (Platform.OS === 'web') {
+             if (webConfirmationResult.current) {
+                 await webConfirmationResult.current.confirm(verificationCode);
+             } else {
+                 throw new Error("No verification session found.");
+             }
+          } else {
+             const credential = PhoneAuthProvider.credential(
+               verificationId,
+               verificationCode
+             );
+          }
+          
+          Alert.alert("Success", "Phone number verified!");
+          setVerificationId(null);
+          // Auto-save
+          await updateProfile({ displayName: name, phoneNumber: phone });
+          
+      } catch (err: any) {
+          Alert.alert("Invalid Code", err.message);
+      }
+  };
 
   const handleUpdate = async () => {
     if (!name.trim()) {
@@ -25,7 +90,7 @@ export default function ProfileScreen() {
     }
 
     setLoading(true);
-    await updateProfile(name);
+    await updateProfile({ displayName: name, phoneNumber: phone });
     setLoading(false);
     
     Alert.alert('Success', 'Profile updated!', [
@@ -68,6 +133,36 @@ export default function ProfileScreen() {
         <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
         <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
           <View style={styles.container}>
+            {/* Club Invites Section */}
+            {invitedClubs && invitedClubs.length > 0 && (
+                <View style={[styles.section, {borderBottomWidth: 1, borderBottomColor: theme.colors.border, paddingBottom: 16}]}>
+                   <Text style={[styles.sectionTitle, {color: theme.colors.primary}]}>Club Invites ({invitedClubs.length})</Text>
+                   {invitedClubs.map(club => (
+                       <View key={club.id} style={styles.clubItem}>
+                           <View>
+                               <Text style={styles.clubName}>{club.name}</Text>
+                               <Text style={{fontSize: 10, color: theme.colors.textSecondary}}>Invited you to join</Text>
+                           </View>
+                           <View style={{flexDirection: 'row'}}>
+                               <TouchableOpacity 
+                                  style={[styles.smallBtn, {backgroundColor: '#38A169', paddingHorizontal: 16}]}
+                                  onPress={async () => {
+                                      try {
+                                          await acceptClubInvite(club.id);
+                                          Alert.alert("Joined!", `Welcome to ${club.name}`);
+                                      } catch(e) {
+                                          Alert.alert("Error", "Could not join club");
+                                      }
+                                  }}
+                               >
+                                   <Text style={styles.smallBtnText}>Accept</Text>
+                               </TouchableOpacity>
+                           </View>
+                       </View>
+                   ))}
+                </View>
+            )}
+
             {/* Club Management Section */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>My Clubs</Text>
@@ -123,6 +218,58 @@ export default function ProfileScreen() {
                 autoCapitalize="words"
               />
             </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Phone Number</Text>
+              <View style={{flexDirection: 'row', gap: 10}}>
+                  <TextInput
+                    style={[styles.input, {flex: 1}]}
+                    value={phone}
+                    onChangeText={setPhone}
+                    placeholder="+1234567890"
+                    placeholderTextColor={theme.colors.textSecondary}
+                    keyboardType="phone-pad"
+                    editable={!verificationId && (!user?.phoneNumber || user.phoneNumber !== phone)}
+                  />
+                  {(!user?.phoneNumber || user.phoneNumber !== phone) && (
+                     <Button 
+                        title={verificationId ? "Re-send" : "Verify"} 
+                        size="small" 
+                        onPress={sendVerification} 
+                        style={{width: 80}}
+                     />
+                  )}
+                  {user?.phoneNumber && user.phoneNumber === phone && (
+                      <View style={{justifyContent: 'center', paddingHorizontal: 10}}>
+                          <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary} />
+                      </View>
+                  )}
+              </View>
+              {verificationId && (
+                  <View style={{marginTop: 10, flexDirection: 'row', gap: 10, alignItems: 'center'}}>
+                      <TextInput
+                        style={[styles.input, {width: 120, textAlign: 'center'}]}
+                        value={verificationCode}
+                        onChangeText={setVerificationCode}
+                        placeholder="123456"
+                        keyboardType="number-pad"
+                        maxLength={6}
+                      />
+                      <Button title="Confirm" size="small" onPress={confirmCode} />
+                  </View>
+              )}
+              <Text style={styles.helper}>Used for friends to find you.</Text>
+            </View>
+
+            {Platform.OS !== 'web' ? (
+                <FirebaseRecaptchaVerifierModal
+                    ref={recaptchaVerifier}
+                    firebaseConfig={app.options}
+                    // attemptInvisibleVerification={true} 
+                />
+            ) : (
+                <View nativeID="recaptcha-container" />
+            )}
 
             <View style={styles.formGroup}>
               <Text style={styles.label}>Email Address</Text>

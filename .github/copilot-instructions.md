@@ -56,3 +56,4 @@ TASK COMPLETION RULES:
   - User is provided with clear instructions to debug/launch the project
 - [x] Implement Google Authentication (Code complete, pending Firebase Console setup)
 - [x] Implement Account Deletion (Soft Delete to preserve match history)
+- [x] Setup and Debug CI/CD (GitHub Actions for Android APK)

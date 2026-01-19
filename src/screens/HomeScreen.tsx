@@ -139,6 +139,18 @@ export default function HomeScreen() {
       >
         <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
           
+           {/* Missing Phone Alert */}
+           {user && !user.phoneNumber && (
+               <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.alertBanner}>
+                   <Ionicons name="alert-circle" size={24} color="#C05621" />
+                   <View style={{flex: 1, marginLeft: 10}}>
+                       <Text style={styles.alertTitle}>Connect with Friends</Text>
+                       <Text style={styles.alertText}>Add your phone number to get invited to clubs!</Text>
+                   </View>
+                   <Ionicons name="chevron-forward" size={20} color="#C05621" />
+               </TouchableOpacity>
+           )}
+
           {/* Club Switcher / List */}
           <View style={{ marginBottom: 16 }}>
             <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems:'center', marginBottom: 8}}>
@@ -395,6 +407,25 @@ const createStyles = (theme: Theme) => StyleSheet.create({
     color: theme.colors.textPrimary,
   },
   editProfileLink: { fontSize: 12, color: theme.colors.primary, marginTop: 2 },
+  alertBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#FEEBC8',
+      padding: 12,
+      borderRadius: 12,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: '#FBD38D',
+  },
+  alertTitle: {
+      color: '#744210',
+      fontWeight: 'bold',
+      fontSize: 14,
+  },
+  alertText: {
+      color: '#744210',
+      fontSize: 12,
+  },
   iconBtn: { padding: 8, backgroundColor: theme.colors.surfaceHighlight, borderRadius: 8 },
 
   content: {

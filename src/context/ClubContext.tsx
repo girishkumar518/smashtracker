@@ -19,6 +19,8 @@ import {
   getDoc
 } from 'firebase/firestore';
 
+import { sendPushNotification } from '../services/notificationService';
+
 interface ClubContextType {
   activeClub: Club | null;
   createClub: (name: string) => Promise<void>;
@@ -33,8 +35,12 @@ interface ClubContextType {
   approveRequest: (userId: string) => Promise<void>;
   rejectRequest: (userId: string) => Promise<void>;
   removeMember: (userId: string) => Promise<void>;
+  leaveClub: (clubId: string) => Promise<void>;
   deleteClub: (clubId: string) => Promise<void>;
+  sendClubInvite: (phoneNumber: string) => Promise<boolean>; // Returns true if user found & invited
+  acceptClubInvite: (clubId: string) => Promise<void>;
   pendingClubs: Club[];
+  invitedClubs: Club[]; // New
   userClubs: Club[];
   setActiveClub: (club: Club) => void;
 }
@@ -50,6 +56,7 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [userClubs, setUserClubs] = useState<Club[]>([]);
   const [pendingClubs, setPendingClubs] = useState<Club[]>([]);
+  const [invitedClubs, setInvitedClubs] = useState<Club[]>([]); // New
 
   // 1. Fetch Clubs the user belongs to
   useEffect(() => {
@@ -59,6 +66,7 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
        setMatches([]);
        setUserClubs([]);
        setPendingClubs([]);
+       setInvitedClubs([]);
        return;
     }
 
@@ -90,15 +98,21 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
         const myPending = allClubs.filter(c => 
             c.joinRequests && c.joinRequests.includes(user.id)
         );
+
+        // Filter for Invited Clubs
+        const myInvites = allClubs.filter(c => 
+            user.clubInvites && user.clubInvites.includes(c.id)
+        );
         
         setUserClubs(myClubs);
         setPendingClubs(myPending);
+        setInvitedClubs(myInvites);
     }, (error) => {
         console.error("ClubContext: Snapshot Error:", error);
     });
     
     return () => unsubscribe();
-  }, [user]);
+  }, [user]); // Re-run if user object changes (e.g. invites array updates)
 
   // Separate effect to handle auto-selection to avoid re-subscribing loop
   useEffect(() => {
@@ -342,6 +356,97 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
       }
   };
 
+  const leaveClub = async (clubId: string) => {
+      if (!user) return;
+      
+      const club = userClubs.find(c => c.id === clubId) || activeClub; 
+      if (!club || club.id !== clubId) return; // Ensure we have the right club
+      
+      if (club.ownerId === user.id) {
+          throw new Error("Owner cannot leave the club. You must delete the club or transfer ownership.");
+      }
+
+      const memberToRemove = club.members.find(m => m.userId === user.id);
+      if (!memberToRemove) return;
+
+      try {
+          await updateDoc(doc(db, 'clubs', clubId), {
+              members: arrayRemove(memberToRemove)
+          });
+          
+          if (activeClub?.id === clubId) {
+             setActiveClub(null);
+          }
+      } catch (e) {
+          console.error("Error leaving club:", e);
+          throw e; 
+      }
+  };
+
+  const sendClubInvite = async (phoneNumber: string): Promise<boolean> => {
+      if (!user || !activeClub) return false;
+
+      // 1. Normalize phone number (simple check)
+      // Ideally should be flexible, but let's assume exact match for now or basic cleaning
+      // It's better to store normalized numbers in DB on profile update.
+      // For now, let's just query.
+      
+      try {
+          const q = query(collection(db, 'users'), where('phoneNumber', '==', phoneNumber));
+          const snapshot = await getDocs(q);
+
+          if (snapshot.empty) return false;
+
+          const targetUserDoc = snapshot.docs[0];
+          const targetUser = targetUserDoc.data() as User;
+          
+          // 2. Add invite to user's profile
+          await updateDoc(doc(db, 'users', targetUserDoc.id), {
+              clubInvites: arrayUnion(activeClub.id)
+          });
+          
+          // 3. Send Push Notification
+          if (targetUser.pushToken) {
+              await sendPushNotification(
+                  targetUser.pushToken,
+                  "Club Invitation",
+                  `${user.displayName} invited you to join ${activeClub.name}`
+              );
+          }
+          
+          return true;
+
+      } catch (e) {
+          console.error("Error sending invite:", e);
+          throw e;
+      }
+  };
+
+  const acceptClubInvite = async (clubId: string) => {
+      if (!user) return;
+      
+      try {
+          // 1. Add to Club Members
+          await updateDoc(doc(db, 'clubs', clubId), {
+              members: arrayUnion({
+                  userId: user.id,
+                  role: 'player',
+                  joinedAt: Date.now()
+              })
+          });
+          
+          // 2. Remove from User Invites
+          await updateDoc(doc(db, 'users', user.id), {
+              clubInvites: arrayRemove(clubId)
+          });
+          
+          // 3. Refresh logic will pick up the new club
+      } catch (e) {
+          console.error("Error accepting invite:", e);
+          throw e;
+      }
+  };
+
   const deleteClub = async (clubId: string) => {
     if (!user) return;
     
@@ -411,7 +516,11 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
         approveRequest,
         rejectRequest,
         removeMember,
+        leaveClub,
+        sendClubInvite,
+        acceptClubInvite,
         pendingClubs,
+        invitedClubs,
         deleteClub,
         userClubs,
         setActiveClub

@@ -5,6 +5,9 @@ export interface User {
   email: string;
   displayName: string;
   photoURL?: string;
+  phoneNumber?: string;
+  pushToken?: string;
+  clubInvites?: string[]; // Array of Club IDs inviting the user
 }
 
 export interface ClubMember {

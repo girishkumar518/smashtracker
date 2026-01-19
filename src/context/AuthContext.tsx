@@ -5,6 +5,7 @@ import { auth, db } from '../services/firebaseConfig';
 import { onAuthStateChanged, User as FirebaseUser, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut as firebaseSignOut, GoogleAuthProvider, signInWithCredential, signInWithPopup, deleteUser } from 'firebase/auth';
 import { setDoc, doc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { registerForPushNotificationsAsync } from '../services/notificationService';
 
 // Define the shape of the context
 interface AuthContextType {
@@ -13,7 +14,7 @@ interface AuthContextType {
   signIn: (email: string, password?: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
-  updateProfile: (displayName: string) => Promise<void>;
+  updateProfile: (data: { displayName?: string, phoneNumber?: string }) => Promise<void>;
   deleteAccount: () => Promise<void>;
 }
 
@@ -48,9 +49,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Sync with Firestore "users" collection (Non-blocking background)
         setUser(userData);
         if (firebaseUser.displayName) { 
-           // Fire and forget sync
-           setDoc(doc(db, 'users', firebaseUser.uid), userData, { merge: true })
-             .catch(e => console.error("Error saving user to Firestore:", e));
+           // Register Push Token
+           registerForPushNotificationsAsync().then(token => {
+               if (token) {
+                   userData.pushToken = token;
+               }
+               // Fire and forget sync
+               setDoc(doc(db, 'users', firebaseUser.uid), userData, { merge: true })
+                 .catch(e => console.error("Error saving user to Firestore:", e));
+           });
         }
       } else {
         setUser(null);
@@ -136,13 +143,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const updateProfile = async (displayName: string) => {
+  const updateProfile = async (data: { displayName?: string, phoneNumber?: string }) => {
     if (user) {
       // Optimistic update
-      setUser({ ...user, displayName });
-      // Fire and forget Firestore update
+      setUser({ ...user, ...data });
+      // Firestore update
       try {
-          await updateDoc(doc(db, 'users', user.id), { displayName });
+          // Only update provided fields
+          await updateDoc(doc(db, 'users', user.id), data);
       } catch (e) {
           console.error("Profile Update Error", e);
       }

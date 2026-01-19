@@ -38,7 +38,8 @@
         {
           "contactsPermission": "Allow $(PRODUCT_NAME) to access your contacts to invite friends."
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "extra": {
       "eas": {

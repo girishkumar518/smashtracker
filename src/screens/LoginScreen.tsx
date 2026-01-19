@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, Platform, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, Platform, SafeAreaView, StatusBar, Alert } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme/theme';
@@ -7,19 +7,17 @@ import { Theme } from '../theme/theme';
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signInWithGoogle, signIn } = useAuth();
   const { theme, isDark } = useTheme();
 
   const styles = useMemo(() => createStyles(theme), [theme]);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
-      alert('Please enter both email and password');
+      Alert.alert('Error', 'Please enter email and password');
       return;
     }
-    // For MVP prototyping, we accept any email
-    const userEmail = email.trim();
-    signIn(userEmail, password);
+    await signIn(email, password);
   };
 
   return (
@@ -35,6 +33,19 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.form}>
+           <TouchableOpacity 
+             style={[styles.button, { backgroundColor: '#DB4437', marginTop: 10 }]} 
+             onPress={signInWithGoogle}
+           >
+             <Text style={styles.buttonText}>Sign In with Google</Text>
+           </TouchableOpacity>
+
+           <View style={{flexDirection: 'row', alignItems: 'center', marginVertical: 24}}>
+               <View style={{flex: 1, height: 1, backgroundColor: theme.colors.surfaceHighlight}} />
+               <Text style={{marginHorizontal: 10, color: theme.colors.textSecondary}}>OR with Email</Text>
+               <View style={{flex: 1, height: 1, backgroundColor: theme.colors.surfaceHighlight}} />
+           </View>
+
           <Text style={styles.label}>Email Address</Text>
           <TextInput
             style={styles.input}
@@ -58,17 +69,9 @@ export default function LoginScreen() {
           />
 
           <TouchableOpacity style={styles.button} onPress={handleLogin}>
-            <Text style={styles.buttonText}>Sign In</Text>
+            <Text style={styles.buttonText}>Sign In / Sign Up</Text>
           </TouchableOpacity>
 
-          <View style={{height: 1, backgroundColor: theme.colors.surfaceHighlight, marginVertical: 16}} />
-
-          <TouchableOpacity 
-            style={[styles.button, { backgroundColor: '#DB4437' }]} 
-            onPress={signInWithGoogle}
-          >
-            <Text style={styles.buttonText}>Sign In with Google</Text>
-          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -126,6 +129,11 @@ const createStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     color: theme.colors.textPrimary,
+  },
+  helper: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginTop: 6,
   },
   button: {
     backgroundColor: theme.colors.primary,

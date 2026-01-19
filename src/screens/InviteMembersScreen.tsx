@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Button from '../components/Button';
 
 export default function InviteMembersScreen() {
-  const { activeClub } = useClub();
+  const { activeClub, sendClubInvite } = useClub();
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   
@@ -67,6 +67,28 @@ export default function InviteMembersScreen() {
       if (!activeClub) return;
       
       const phone = contact.phoneNumbers?.[0]?.number;
+      if (!phone) {
+          shareGeneric("Join my club!"); // Fallback if no phone
+          return;
+      }
+
+      // Check if user exists in App first
+      // Note: This relies on exact string match of phone number in Firestore. 
+      // Ideally both should be E.164 normalized. 
+      // We try the raw phone first.
+      try {
+          // Normalize both potential formats: remove all non-digit chars
+          // This assumes we stored normalized numbers or have a flexible query mechanism (we don't yet)
+          // For this feature, we'll try the raw number.
+          const inviteSent = await sendClubInvite(phone);
+          if (inviteSent) {
+              Alert.alert('Invite Sent', `An in-app invite and push notification has been sent to ${contact.name}!`);
+              return;
+          }
+      } catch (e) {
+          console.log("Error sending app invite, falling back to SMS", e);
+      }
+
       // Use club specific invite link logic if available, for now just code
       // A reliable deep link scheme isn't set up yet, so using the code is safer.
       const message = `Hey, join my badminton club "${activeClub.name}" on SmashTracker! \n\nClub Code: ${activeClub.inviteCode} \n\nDownload the app and join!`;

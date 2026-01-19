@@ -16,7 +16,8 @@ export default function ClubManagementScreen() {
     approveRequest, 
     rejectRequest, 
     removeMember,
-    deleteClub
+    deleteClub,
+    leaveClub
   } = useClub();
   const { user } = useAuth();
   const navigation = useNavigation();
@@ -79,6 +80,41 @@ export default function ClubManagementScreen() {
               }
           ]
       );
+  };
+
+  const handleLeaveClub = () => {
+    if (!activeClub) return;
+
+    const confirmText = "Are you sure you want to leave this club? You will need an invite code to rejoin.";
+    
+    if (Platform.OS === 'web') {
+        if (window.confirm(confirmText)) {
+            leaveClub(activeClub.id)
+                .then(() => navigation.goBack())
+                .catch((e: any) => alert(e.message));
+        }
+        return;
+    }
+
+    Alert.alert(
+        "Leave Club",
+        confirmText,
+        [
+            { text: "Cancel", style: "cancel" },
+            { 
+                text: "Leave", 
+                style: "destructive",
+                onPress: async () => {
+                    try {
+                        await leaveClub(activeClub.id);
+                        navigation.goBack();
+                    } catch (e: any) {
+                        Alert.alert("Error", e.message || "Failed to leave club");
+                    }
+                }
+            }
+        ]
+    );
   };
 
   const handleRemoveMember = (memberId: string, memberName: string) => {
@@ -207,6 +243,19 @@ export default function ClubManagementScreen() {
                   />
                   <Text style={styles.dangerText}>
                       Warning: Deleting the club removes all data and matches permanently.
+                  </Text>
+              </View>
+          )}
+
+          {!isOwner && activeClub && (
+              <View style={{ marginTop: 20, marginBottom: 40 }}>
+                  <Button 
+                    title="Leave Club" 
+                    onPress={handleLeaveClub}
+                    style={{ backgroundColor: '#E53E3E' }}
+                  />
+                  <Text style={styles.dangerText}>
+                      You will lose access to this club's history and match entry.
                   </Text>
               </View>
           )}
