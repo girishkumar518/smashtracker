@@ -240,6 +240,11 @@ export default function HomeScreen() {
             />
           </View>
         )}
+
+        <View style={{ marginTop: 40, alignItems: 'center', marginBottom: 20 }}>
+            <Text style={{ fontSize: 12, color: '#A0AEC0' }}>Developed by</Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#718096' }}>GK Software Ltd</Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
