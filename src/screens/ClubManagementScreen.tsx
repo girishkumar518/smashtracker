@@ -13,15 +13,16 @@ export default function ClubManagementScreen() {
     joinRequests, 
     approveRequest, 
     rejectRequest, 
-    removeMember
+    removeMember,
+    deleteClub
   } = useClub();
   const { user } = useAuth();
   const navigation = useNavigation();
   const [selectedMember, setSelectedMember] = useState<any>(null);
 
   // Simple admin check: if user is owner or has admin role in members array
-  const isAdmin = activeClub?.ownerId === user?.id || 
-                  activeClub?.members.find(m => m.userId === user?.id)?.role === 'admin';
+  const isOwner = activeClub?.ownerId === user?.id;
+  const isAdmin = isOwner || activeClub?.members.find(m => m.userId === user?.id)?.role === 'admin';
 
   if (!activeClub) {
     return (
@@ -40,6 +41,29 @@ export default function ClubManagementScreen() {
     } catch (error) {
       Alert.alert('Error', 'Could not share invite code.');
     }
+  };
+
+  const handleDeleteClub = () => {
+      if (!isOwner || !activeClub) return;
+      Alert.alert(
+          "Delete Club",
+          "Are you sure you want to permanently delete this club? ALL MATCH HISTORY WILL BE LOST. This action cannot be undone.",
+          [
+              { text: "Cancel", style: "cancel" },
+              { 
+                  text: "Delete Club", 
+                  style: "destructive",
+                  onPress: async () => {
+                      try {
+                          await deleteClub(activeClub.id);
+                          navigation.goBack();
+                      } catch (e) {
+                          Alert.alert("Error", "Failed to delete club.");
+                      }
+                  }
+              }
+          ]
+      );
   };
 
   const handleRemoveMember = (memberId: string, memberName: string) => {
@@ -61,20 +85,37 @@ export default function ClubManagementScreen() {
     );
   };
 
-  const renderMember = ({ item }: { item: any }) => (
+  const getRoleLabel = (userId: string) => {
+      if (activeClub?.ownerId === userId) return { text: 'Owner', color: '#805AD5' };
+      const member = activeClub?.members.find(m => m.userId === userId);
+      if (member?.role === 'admin') return { text: 'Admin', color: '#3182CE' };
+      return null;
+  };
+
+  const renderMember = ({ item }: { item: any }) => {
+    const roleBadge = getRoleLabel(item.id);
+    return (
     <TouchableOpacity style={styles.memberRow} onPress={() => setSelectedMember(item)}>
        <View style={styles.memberAvatar}>
           <Text style={styles.avatarText}>{item.displayName ? item.displayName.charAt(0) : '?'}</Text>
        </View>
        <View style={{ flex: 1 }}>
-         <Text style={styles.memberName}>{item.displayName || 'Unknown User'}</Text>
+         <View style={{flexDirection: 'row', alignItems: 'center'}}>
+             <Text style={styles.memberName}>{item.displayName || 'Unknown User'}</Text>
+             {roleBadge && (
+                 <View style={[styles.badge, { backgroundColor: roleBadge.color }]}>
+                     <Text style={styles.badgeText}>{roleBadge.text}</Text>
+                 </View>
+             )}
+         </View>
          <Text style={styles.memberEmail}>Seed #{item.rank} - {item.points} pts</Text>
        </View>
        <View>
           <Text style={styles.memberRole}>{item.matchesPlayed} Matches</Text> 
        </View>
     </TouchableOpacity>
-  );
+    );
+  };
 
   const renderRequest = ({ item }: { item: any }) => (
     <View style={styles.memberRow}>
@@ -136,6 +177,19 @@ export default function ClubManagementScreen() {
             />
          </Card>
       </View>
+
+      {isOwner && (
+          <View style={{ marginTop: 20 }}>
+              <Button 
+                title="Delete Club" 
+                onPress={handleDeleteClub}
+                style={{ backgroundColor: '#E53E3E' }}
+              />
+              <Text style={styles.dangerText}>
+                  Warning: Deleting the club removes all data and matches permanently.
+              </Text>
+          </View>
+      )}
 
       <View style={{ marginBottom: 40 }}>
            {/* Bottom Spacer */}
@@ -274,5 +328,22 @@ const styles = StyleSheet.create({
       fontSize: 20, 
       fontWeight: 'bold', 
       marginBottom: 8
+  },
+  badge: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 12,
+      marginLeft: 8,
+  },
+  badgeText: {
+      color: 'white',
+      fontSize: 10,
+      fontWeight: 'bold',
+  },
+  dangerText: {
+      color: '#E53E3E',
+      fontSize: 12,
+      textAlign: 'center',
+      marginTop: 8,
   }
 });

@@ -38,3 +38,10 @@ A digital hub for badminton clubs that simplifies scoring, centralizes match dat
 - `src/context`: Application state management
 - `src/navigation`: Navigation configuration
 - `src/services`: External services integration (Firebase)
+
+## Production Deployment (Vercel)
+
+If you see `auth/unauthorized-domain` error:
+1.  Go to [Firebase Console](https://console.firebase.google.com/).
+2.  Navigate to **Authentication** > **Settings** > **Authorized domains**.
+3.  Add your Vercel domain (e.g., `your-app.vercel.app`).

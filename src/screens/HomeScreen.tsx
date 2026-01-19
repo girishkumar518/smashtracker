@@ -8,13 +8,14 @@ import { useNavigation } from '@react-navigation/native';
 
 export default function HomeScreen() {
   const { user, signOut } = useAuth();
-  const { activeClub, matches, members, pendingClubs } = useClub();
+  const { activeClub, matches, members, pendingClubs, allUsers } = useClub();
   const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
 
   const getPlayerName = (id: string) => {
-    const member = members.find(m => m.id === id);
-    return member ? member.displayName : 'Unknown';
+    // Try to find in allUsers (includes history), fallback to members, then Unknown
+    const u = allUsers?.find(u => u.id === id) || members.find(m => m.id === id);
+    return u ? u.displayName : 'Unknown';
   };
 
   // Calculate Stats
@@ -70,7 +71,7 @@ export default function HomeScreen() {
       losses: played - wins,
       bestPartner
     };
-  }, [matches, user, members]);
+  }, [matches, user, members, allUsers]);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);

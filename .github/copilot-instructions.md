@@ -55,3 +55,4 @@ TASK COMPLETION RULES:
   - README.md file exists and is up to date
   - User is provided with clear instructions to debug/launch the project
 - [x] Implement Google Authentication (Code complete, pending Firebase Console setup)
+- [x] Implement Account Deletion (Soft Delete to preserve match history)

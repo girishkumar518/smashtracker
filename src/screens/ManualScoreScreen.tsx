@@ -20,13 +20,19 @@ export default function ManualScoreScreen() {
   const navigation = useNavigation();
   const params = route.params as ManualScoreParams;
   const { isEdit, match } = params;
+  const { recordMatch, activeClub, deleteMatch, allUsers, members } = useClub();
+
+  // Helper to resolve name
+  const getName = (id: string) => {
+      const u = allUsers?.find(u => u.id === id) || members.find(m => m.id === id);
+      return u ? u.displayName : 'Unknown Player';
+  };
 
   // Use existing match data if editing, else use params
-  const team1 = match ? match.team1.map(id => ({id, name: 'Player ' + id})) : params.team1;
-  const team2 = match ? match.team2.map(id => ({id, name: 'Player ' + id})) : params.team2;
+  const team1 = match ? match.team1.map(id => ({id, name: getName(id)})) : params.team1;
+  const team2 = match ? match.team2.map(id => ({id, name: getName(id)})) : params.team2;
   const matchType = 3; 
 
-  const { recordMatch, activeClub, deleteMatch } = useClub();
 
   const [s1t1, setS1T1] = useState(match?.scores[0]?.team1Score.toString() || '');
   const [s1t2, setS1T2] = useState(match?.scores[0]?.team2Score.toString() || '');

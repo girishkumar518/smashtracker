@@ -25,6 +25,7 @@ interface ClubContextType {
   joinClub: (code: string) => Promise<{success: boolean, message: string}>;
   members: User[]; 
   joinRequests: User[];
+  allUsers: User[];
   matches: Match[];
   recordMatch: (match: Match) => void;
   deleteMatch: (matchId: string) => Promise<void>;
@@ -32,6 +33,7 @@ interface ClubContextType {
   approveRequest: (userId: string) => Promise<void>;
   rejectRequest: (userId: string) => Promise<void>;
   removeMember: (userId: string) => Promise<void>;
+  deleteClub: (clubId: string) => Promise<void>;
   pendingClubs: Club[];
 }
 
@@ -42,6 +44,7 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
   const [activeClub, setActiveClub] = useState<Club | null>(null);
   const [members, setMembers] = useState<User[]>([]);
   const [joinRequests, setJoinRequests] = useState<User[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [userClubs, setUserClubs] = useState<Club[]>([]);
   const [pendingClubs, setPendingClubs] = useState<Club[]>([]);
@@ -136,16 +139,27 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
           
           const uniqueIds = Array.from(new Set([...memberIds, ...requestIds]));
 
-          if (uniqueIds.length === 0) return;
+          // Also include users from matches (for displaying names of former/deleted players)
+          const matchUserIds = new Set<string>();
+          matches.forEach(m => {
+            m.team1.forEach(id => matchUserIds.add(id));
+            m.team2.forEach(id => matchUserIds.add(id));
+          });
+          matchUserIds.forEach(id => uniqueIds.push(id));
+
+          // Dedup again
+          const reallyUniqueIds = Array.from(new Set(uniqueIds));
+          if (reallyUniqueIds.length === 0) return;
 
           try {
-              const userDocs = await Promise.all(uniqueIds.map(uid => getDoc(doc(db, 'users', uid))));
-              const allUsers: User[] = userDocs
+              const userDocs = await Promise.all(reallyUniqueIds.map(uid => getDoc(doc(db, 'users', uid))));
+              const allUsersWithDeleted: User[] = userDocs
                   .filter(d => d.exists())
                   .map(d => ({ id: d.id, ...d.data() } as User));
               
-              setMembers(allUsers.filter(u => memberIds.includes(u.id)));
-              setJoinRequests(allUsers.filter(u => requestIds.includes(u.id)));
+              setMembers(allUsersWithDeleted.filter(u => memberIds.includes(u.id))); // Filter for current members only
+              setJoinRequests(allUsersWithDeleted.filter(u => requestIds.includes(u.id)));
+              setAllUsers(allUsersWithDeleted); // New State for History Lookup
           } catch (e) {
               console.error("Error fetching members:", e);
           }
@@ -154,7 +168,7 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
       fetchMembers();
 
       return () => unsubMatches();
-  }, [activeClub?.id, activeClub?.members, activeClub?.joinRequests]); // Re-run if members list changes
+  }, [activeClub?.id, activeClub?.members, activeClub?.joinRequests, matches?.length]); // Added matches.length dependency
 
 
   const seededMembers: SeededUser[] = useMemo(() => {
@@ -319,6 +333,37 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
       }
   };
 
+  const deleteClub = async (clubId: string) => {
+    if (!user) return;
+    
+    // Double security check
+    const club = userClubs.find(c => c.id === clubId);
+    if (!club || club.ownerId !== user.id) {
+        throw new Error("Only the owner can delete the club.");
+    }
+
+    try {
+        // 1. Delete all matches associated with the club
+        const qMatches = query(collection(db, 'matches'), where('clubId', '==', clubId));
+        const snapshot = await getDocs(qMatches);
+        
+        const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+        await Promise.all(deletePromises);
+
+        // 2. Delete the club document
+        await deleteDoc(doc(db, 'clubs', clubId));
+        
+        // 3. Reset active state if needed
+        if (activeClub?.id === clubId) {
+            setActiveClub(null);
+        }
+
+    } catch (e) {
+        console.error("Error deleting club:", e);
+        throw e;
+    }
+  };
+
   const deleteMatch = async (matchId: string) => {
       if (!activeClub) return;
       try {
@@ -349,6 +394,7 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
         joinClub, 
         members, 
         joinRequests,
+        allUsers,
         matches, 
         recordMatch, 
         deleteMatch,
@@ -356,7 +402,8 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
         approveRequest,
         rejectRequest,
         removeMember,
-        pendingClubs
+        pendingClubs,
+        deleteClub
     }}>
       {children}
     </ClubContext.Provider>
