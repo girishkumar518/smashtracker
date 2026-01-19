@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Share, Alert, TouchableOpacity, Modal, ScrollView, Platform } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, Share, Alert, TouchableOpacity, ScrollView, Platform, StatusBar } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useClub } from '../context/ClubContext';
 import { useAuth } from '../context/AuthContext'; 
 import Card from '../components/Card';
 import Button from '../components/Button';
+import { useTheme } from '../context/ThemeContext';
+import { Theme } from '../theme/theme';
 
 export default function ClubManagementScreen() {
   const { 
@@ -19,6 +21,9 @@ export default function ClubManagementScreen() {
   const { user } = useAuth();
   const navigation = useNavigation();
   const [selectedMember, setSelectedMember] = useState<any>(null);
+  const { theme, isDark } = useTheme();
+
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   // Simple admin check: if user is owner or has admin role in members array
   const isOwner = activeClub?.ownerId === user?.id;
@@ -27,7 +32,7 @@ export default function ClubManagementScreen() {
   if (!activeClub) {
     return (
       <View style={styles.container}>
-        <Text>No active club found.</Text>
+        <Text style={{color: theme.colors.textPrimary}}>No active club found.</Text>
         <Button title="Go Back" onPress={() => navigation.goBack()} />
       </View>
     );
@@ -105,7 +110,7 @@ export default function ClubManagementScreen() {
   const renderMember = ({ item }: { item: any }) => {
     const roleBadge = getRoleLabel(item.id);
     return (
-    <TouchableOpacity style={styles.memberRow} onPress={() => setSelectedMember(item)}>
+    <TouchableOpacity style={styles.memberRow} onPress={() => isAdmin && handleRemoveMember(item.id, item.displayName)}>
        <View style={styles.memberAvatar}>
           <Text style={styles.avatarText}>{item.displayName ? item.displayName.charAt(0) : '?'}</Text>
        </View>
@@ -149,211 +154,167 @@ export default function ClubManagementScreen() {
   );
 
   return (
-    <ScrollView style={styles.container}>
-       <Card style={styles.headerCard}>
-          <Text style={styles.clubName}>{activeClub.name}</Text>
-          <Text style={styles.sectionLabel}>Invite Code</Text>
-          <TouchableOpacity onPress={shareInviteCode}>
-            <Text style={styles.inviteCode}>{activeClub.inviteCode} <Text style={{fontSize: 14, color: '#3182CE'}}>(Share)</Text></Text>
-          </TouchableOpacity>
-       </Card>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
+       <ScrollView style={styles.container}>
+          <Card style={styles.headerCard}>
+              <Text style={styles.clubName}>{activeClub.name}</Text>
+              <Text style={styles.sectionLabel}>Invite Code</Text>
+              <TouchableOpacity onPress={shareInviteCode}>
+                <Text style={styles.inviteCode}>{activeClub.inviteCode} <Text style={{fontSize: 14, color: '#3182CE'}}>(Share)</Text></Text>
+              </TouchableOpacity>
+          </Card>
 
-      {/* --- JOIN REQUESTS (ADMIN ONLY) --- */}
-      {isAdmin && joinRequests && joinRequests.length > 0 && (
+          {/* --- JOIN REQUESTS (ADMIN ONLY) --- */}
+          {isAdmin && joinRequests && joinRequests.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Join Requests ({joinRequests.length})</Text>
+                <Card style={{padding: 0, backgroundColor: theme.colors.surface}}>
+                    <FlatList
+                        data={joinRequests}
+                        renderItem={renderRequest}
+                        keyExtractor={item => item.id}
+                        scrollEnabled={false}
+                        ItemSeparatorComponent={() => <View style={styles.separator} />}
+                    />
+                </Card>
+              </View>
+          )}
+
+          {/* --- MEMBERS LIST --- */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Join Requests ({joinRequests.length})</Text>
-            <Card style={{padding: 0}}>
+            <Text style={styles.sectionTitle}>Members ({seededMembers.length})</Text>
+            <Card style={{padding: 0, backgroundColor: theme.colors.surface}}>
                 <FlatList
-                    data={joinRequests}
-                    renderItem={renderRequest}
+                    data={seededMembers}
+                    renderItem={renderMember}
                     keyExtractor={item => item.id}
                     scrollEnabled={false}
                     ItemSeparatorComponent={() => <View style={styles.separator} />}
                 />
             </Card>
           </View>
-      )}
 
-      {/* --- MEMBERS LIST --- */}
-      <View style={styles.section}>
-         <Text style={styles.sectionTitle}>Members ({seededMembers.length})</Text>
-         <Card style={{padding: 0}}>
-            <FlatList
-                data={seededMembers}
-                renderItem={renderMember}
-                keyExtractor={item => item.id}
-                scrollEnabled={false}
-                ItemSeparatorComponent={() => <View style={styles.separator} />}
-            />
-         </Card>
-      </View>
-
-      {isOwner && (
-          <View style={{ marginTop: 20 }}>
-              <Button 
-                title="Delete Club" 
-                onPress={handleDeleteClub}
-                style={{ backgroundColor: '#E53E3E' }}
-              />
-              <Text style={styles.dangerText}>
-                  Warning: Deleting the club removes all data and matches permanently.
-              </Text>
-          </View>
-      )}
-
-      <View style={{ marginBottom: 40 }}>
-           {/* Bottom Spacer */}
-      </View>
-
-      {/* --- MEMBER DETAIL MODAL --- */}
-      {selectedMember && (
-        <Modal transparent animationType="fade" visible={!!selectedMember}>
-            <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setSelectedMember(null)}>
-                <View style={styles.modalContent}>
-                    <Text style={styles.modalTitle}>{selectedMember.displayName}</Text>
-                    <Text style={{marginBottom: 16}}>Rank: #{selectedMember.rank} | Points: {selectedMember.points}</Text>
-                    
-                    {/* Show Remove Button ONLY if current user is Admin AND selected user is not themself */}
-                    {isAdmin && selectedMember.id !== user?.id && (
-                        <Button 
-                            title="Remove from Club" 
-                            onPress={() => handleRemoveMember(selectedMember.id, selectedMember.displayName)}
-                            style={{backgroundColor: '#E53E3E', marginBottom: 12}}
-                        />
-                    )}
-                    <Button 
-                        title="Close" 
-                        onPress={() => setSelectedMember(null)} 
-                        variant="outline" 
-                    />
-                </View>
-            </TouchableOpacity>
-        </Modal>
-      )}
-    </ScrollView>
+          {isOwner && (
+              <View style={{ marginTop: 20, marginBottom: 40 }}>
+                  <Button 
+                    title="Delete Club" 
+                    onPress={handleDeleteClub}
+                    style={{ backgroundColor: '#E53E3E' }}
+                  />
+                  <Text style={styles.dangerText}>
+                      Warning: Deleting the club removes all data and matches permanently.
+                  </Text>
+              </View>
+          )}
+      </ScrollView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: Theme) => StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#F7FAFC',
     padding: 16,
   },
   headerCard: {
+    padding: 24,
     alignItems: 'center',
     marginBottom: 24,
-    paddingVertical: 32,
+    backgroundColor: theme.colors.surface,
   },
   clubName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#2D3748',
+    color: theme.colors.textPrimary,
     marginBottom: 16,
   },
   sectionLabel: {
     fontSize: 12,
-    color: '#718096',
+    color: theme.colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   inviteCode: {
     fontSize: 32,
-    fontWeight: 'bold',
-    color: '#3182CE',
-    letterSpacing: 4,
+    fontWeight: '900',
+    color: theme.colors.textPrimary,
+    marginTop: 4,
+    letterSpacing: 2,
   },
   section: {
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#2D3748',
     marginBottom: 12,
-    marginLeft: 4,
+    color: theme.colors.textSecondary,
+    paddingLeft: 8,
   },
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
   },
+  separator: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+  },
   memberAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   avatarText: {
-    fontSize: 18,
+    color: 'white',
     fontWeight: 'bold',
-    color: '#4A5568',
+    fontSize: 16,
   },
   memberName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#2D3748',
+    color: theme.colors.textPrimary,
   },
   memberEmail: {
     fontSize: 12,
-    color: '#718096',
+    color: theme.colors.textSecondary,
   },
   memberRole: {
-    fontSize: 14,
-    color: '#4A5568',
-  },
-  separator: {
-    height: 1,
-    backgroundColor: '#E2E8F0',
-  },
-  actionBtnSmall: {
-      width: 32, 
-      height: 32, 
-      borderRadius: 16, 
-      alignItems: 'center', 
-      justifyContent: 'center'
-  },
-  actionBtnText: {
-      color: 'white', 
-      fontWeight: 'bold'
-  },
-  modalOverlay: {
-      flex: 1, 
-      backgroundColor: 'rgba(0,0,0,0.5)', 
-      justifyContent: 'center', 
-      padding: 24
-  },
-  modalContent: {
-      backgroundColor: 'white', 
-      borderRadius: 12, 
-      padding: 24, 
-      alignItems: 'center',
-      width: '100%',
-      maxWidth: 300
-  },
-  modalTitle: {
-      fontSize: 20, 
-      fontWeight: 'bold', 
-      marginBottom: 8
-  },
-  badge: {
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 12,
-      marginLeft: 8,
-  },
-  badgeText: {
-      color: 'white',
-      fontSize: 10,
-      fontWeight: 'bold',
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    textAlign: 'right',
   },
   dangerText: {
-      color: '#E53E3E',
-      fontSize: 12,
-      textAlign: 'center',
-      marginTop: 8,
+    color: '#E53E3E',
+    marginTop: 12,
+    textAlign: 'center',
+    fontSize: 12,
+  },
+  badge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  actionBtnSmall: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionBtnText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   }
 });

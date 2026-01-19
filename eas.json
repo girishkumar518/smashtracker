@@ -5,17 +5,47 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "GOOGLE_SERVICES_FILE": "./google-services-dev.json",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDj6...",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "smashtracker-dev.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "smashtracker-dev",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "smashtracker-dev.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "...",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "..."
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "GOOGLE_SERVICES_FILE": "./google-services.json"
+      }
     },
     "production": {
+      "env": {
+        "GOOGLE_SERVICES_FILE": "./google-services.json",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDj6...",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "smashtracker-3a044.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "smashtracker-3a044",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "smashtracker-3a044.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "444345343511",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:444345343511:android:1cf67c1024fd2c6408c652"
+      },
       "android": {
          "buildType": "app-bundle"
       }
     },
     "apk": {
+      "env": {
+        "GOOGLE_SERVICES_FILE": "./google-services.json",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDj61VZkUrNNFYfuxlGo-dlqZFbLrbrzV0",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "smashtracker-3a044.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "smashtracker-3a044",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "smashtracker-3a044.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "444345343511",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:444345343511:android:1cf67c1024fd2c6408c652"
+      },
       "android": {
         "buildType": "apk"
       }

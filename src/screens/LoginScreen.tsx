@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, Platform, SafeAreaView } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, Platform, SafeAreaView, StatusBar } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import { Theme } from '../theme/theme';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { signIn, signInWithGoogle } = useAuth();
+  const { theme, isDark } = useTheme();
+
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const handleLogin = () => {
     if (!email || !password) {
@@ -19,6 +24,7 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -33,6 +39,7 @@ export default function LoginScreen() {
           <TextInput
             style={styles.input}
             placeholder="Enter your email"
+            placeholderTextColor={theme.colors.textSecondary}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -43,6 +50,7 @@ export default function LoginScreen() {
           <TextInput
             style={styles.input}
             placeholder="Enter your password"
+            placeholderTextColor={theme.colors.textSecondary}
             value={password}
             onChangeText={setPassword}
             autoCapitalize="none"
@@ -53,7 +61,7 @@ export default function LoginScreen() {
             <Text style={styles.buttonText}>Sign In</Text>
           </TouchableOpacity>
 
-          <View style={{height: 1, backgroundColor: '#E2E8F0', marginVertical: 16}} />
+          <View style={{height: 1, backgroundColor: theme.colors.surfaceHighlight, marginVertical: 16}} />
 
           <TouchableOpacity 
             style={[styles.button, { backgroundColor: '#DB4437' }]} 
@@ -67,10 +75,10 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: theme.colors.background,
   },
   keyboardView: {
     flex: 1,
@@ -84,54 +92,52 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#2D3748',
+    color: theme.colors.textPrimary,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#718096',
+    color: theme.colors.textSecondary,
   },
   form: {
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.surface,
     padding: 24,
     borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: 10,
     elevation: 4,
+    borderWidth: 1,
+    borderColor: theme.colors.surfaceHighlight,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#4A5568',
     marginBottom: 8,
+    color: theme.colors.textSecondary,
+    marginTop: 16,
   },
   input: {
-    height: 50,
-    backgroundColor: '#EDF2F7',
+    backgroundColor: theme.colors.surfaceHighlight,
     borderRadius: 8,
-    paddingHorizontal: 16,
+    padding: 12,
     fontSize: 16,
-    color: '#2D3748',
-    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    color: theme.colors.textPrimary,
   },
   button: {
-    height: 50,
-    backgroundColor: '#38A169',
+    backgroundColor: theme.colors.primary,
     borderRadius: 8,
+    paddingVertical: 14,
     alignItems: 'center',
-    justifyContent: 'center',
+    marginTop: 24,
   },
   buttonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
   },
-  helperText: {
-    marginTop: 16,
-    textAlign: 'center',
-    color: '#A0AEC0',
-    fontSize: 12,
-  },
 });
+

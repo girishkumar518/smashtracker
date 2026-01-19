@@ -1,14 +1,19 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Alert, TouchableWithoutFeedback, Keyboard, ScrollView } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, TextInput, Alert, TouchableWithoutFeedback, Keyboard, ScrollView, StatusBar, SafeAreaView } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../context/ThemeContext';
+import { Theme } from '../theme/theme';
 
 export default function ProfileScreen() {
   const { user, updateProfile, deleteAccount } = useAuth();
   const [name, setName] = useState(user?.displayName || '');
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation();
+  const { theme, isDark } = useTheme();
+
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const handleUpdate = async () => {
     if (!name.trim()) {
@@ -49,7 +54,8 @@ export default function ProfileScreen() {
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
           <View style={styles.container}>
             <View style={styles.formGroup}>
@@ -59,6 +65,7 @@ export default function ProfileScreen() {
                 value={name}
                 onChangeText={setName}
                 placeholder="e.g. John Doe"
+                placeholderTextColor={theme.colors.textSecondary}
                 autoCapitalize="words"
               />
             </View>
@@ -99,66 +106,58 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: Theme) => StyleSheet.create({
   container: {
-    flex: 1,
     padding: 24,
-    backgroundColor: '#F5F7FA',
   },
   formGroup: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   label: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#4A5568',
     marginBottom: 8,
+    color: theme.colors.textPrimary,
   },
   input: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: theme.colors.surface,
+    padding: 16,
     borderRadius: 8,
-    padding: 12,
     fontSize: 16,
-    color: '#2D3748',
-  },
-  saveBtn: {
-      marginTop: 20
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    color: theme.colors.textPrimary,
   },
   disabledInput: {
-    color: '#A0AEC0',
-    backgroundColor: '#EDF2F7',
+    backgroundColor: theme.colors.surfaceHighlight,
+    color: theme.colors.textSecondary,
   },
   helper: {
-    marginTop: 4,
     fontSize: 12,
-    color: '#A0AEC0',
+    color: theme.colors.textSecondary,
+    marginTop: 6,
   },
-  dangerTitle: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: '#E53E3E',
-      marginBottom: 8
-  },
-  dangerText: {
-      fontSize: 14,
-      color: '#718096',
-      lineHeight: 20
+  saveBtn: {
+    marginTop: 12,
+    backgroundColor: theme.colors.primary,
   },
   dangerZone: {
-    marginTop: 60, 
-    borderTopWidth: 1, 
-    borderTopColor: '#E2E8F0', 
-    paddingTop: 30
+    marginTop: 60,
+    padding: 24,
+    backgroundColor: theme.colors.error + '10', // 10% opacity
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.error + '30',
   },
-  deleteBtn: {
-    backgroundColor: 'white', 
-    borderWidth: 1, 
-    borderColor: '#E53E3E', 
-    marginTop: 12
+  dangerTitle: {
+    color: theme.colors.error,
+    fontWeight: 'bold',
+    fontSize: 18,
+    marginBottom: 8,
   },
-  deleteBtnText: {
-    color: '#E53E3E' 
-  }
+  dangerText: {
+    color: theme.colors.textSecondary,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
 });

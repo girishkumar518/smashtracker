@@ -5,14 +5,14 @@ import { initializeAuth, getReactNativePersistence, browserLocalPersistence, get
 import { initializeFirestore, getFirestore } from "firebase/firestore";
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 
-// Used from google-services.json
+// Used from google-services.json or Environment Variables (EAS Build / .env)
 const firebaseConfig = {
-  apiKey: "AIzaSyDj61VZkUrNNFYfuxlGo-dlqZFbLrbrzV0",
-  authDomain: "smashtracker-3a044.firebaseapp.com",
-  projectId: "smashtracker-3a044",
-  storageBucket: "smashtracker-3a044.firebasestorage.app",
-  messagingSenderId: "444345343511",
-  appId: "1:444345343511:android:1cf67c1024fd2c6408c652"
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID
 };
 
 // Initialize Firebase

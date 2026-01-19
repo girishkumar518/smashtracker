@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, SafeAreaView, StatusBar, Dimensions, Animated, Easing } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useClub } from '../context/ClubContext';
 import { Match, MatchSet } from '../models/types';
 import { useTheme } from '../context/ThemeContext';
@@ -311,7 +311,7 @@ export default function LiveScoreScreen() {
 
              {isServing && (
                  <View style={styles.shuttleBadge}>
-                     <Ionicons name="tennisball" size={14} color="#000" />
+                     <MaterialCommunityIcons name="badminton" size={14} color="#000" />
                  </View>
              )}
         </View>

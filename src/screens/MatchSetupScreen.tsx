@@ -1,25 +1,31 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Switch, Modal, FlatList, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, Switch, Modal, FlatList, TouchableOpacity, ScrollView, Alert, StatusBar } from 'react-native';
 import Button from '../components/Button';
 import { useNavigation } from '@react-navigation/native';
 import { useClub } from '../context/ClubContext';
 import { User } from '../models/types';
 import Card from '../components/Card';
+import { useTheme } from '../context/ThemeContext';
+import { Theme } from '../theme/theme';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function MatchSetupScreen() {
   const navigation = useNavigation<any>();
   const { members } = useClub();
+  const { theme, isDark } = useTheme();
   
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
   const [isDoubles, setIsDoubles] = useState(false);
-  const [scoreMode, setScoreMode] = useState<'live' | 'manual'>('live'); // New Mode Switch
-  const [matchType, setMatchType] = useState<1 | 3>(3); // 1 = Single Set, 3 = Best of 3
+  const [scoreMode, setScoreMode] = useState<'live' | 'manual'>('live');
+  const [matchType, setMatchType] = useState<1 | 3>(3); 
   
   // Game Settings
   const [pointsPerSet, setPointsPerSet] = useState<11 | 21 | 30>(21);
-  const [goldenPoint, setGoldenPoint] = useState(false); // No Deuce
+  const [goldenPoint, setGoldenPoint] = useState(false); 
 
-  // Selected Players (User objects or standard placeholders)
-  const [p1, setP1] = useState<User | null>(members[0]); // Default to first member (likely admin)
+  // Selected Players
+  const [p1, setP1] = useState<User | null>(members[0]); 
   const [p2, setP2] = useState<User | null>(null);
   const [p3, setP3] = useState<User | null>(null);
   const [p4, setP4] = useState<User | null>(null);
@@ -53,7 +59,6 @@ export default function MatchSetupScreen() {
   };
 
   const startMatch = () => {
-    // Check missing players
     if (isDoubles) {
       if (!p1 || !p2 || !p3 || !p4) {
         Alert.alert('Missing Players', 'Please select all 4 players for a doubles match.');
@@ -71,7 +76,7 @@ export default function MatchSetupScreen() {
     if (scoreMode === 'live') {
       navigation.navigate('LiveScore', {
         isDoubles,
-        team1, // Now array of objects
+        team1,
         team2,
         matchType,
         pointsPerSet,
@@ -92,238 +97,398 @@ export default function MatchSetupScreen() {
     player: User | null, 
     key: 'p1' | 'p2' | 'p3' | 'p4'
   ) => (
-    <TouchableOpacity onPress={() => openSelector(key)} style={styles.playerInput}>
-      <Text style={[styles.playerText, !player && styles.placeholderText]}>
-        {player ? player.displayName : `Select ${label}`}
-      </Text>
-      <Text style={styles.dropdownIcon}>▼</Text>
+    <TouchableOpacity onPress={() => openSelector(key)} style={styles.playerCard}>
+      <View style={[styles.miniAvatar, player ? { backgroundColor: theme.colors.primary } : { backgroundColor: theme.colors.surfaceHighlight }]}>
+        {player ? (
+            <Text style={styles.miniAvatarText}>{player.displayName.charAt(0)}</Text>
+        ) : (
+            <MaterialCommunityIcons name="plus" size={20} color={theme.colors.textSecondary} />
+        )}
+      </View>
+      <View style={{flex: 1}}>
+        <Text style={[styles.playerText, !player && styles.placeholderText]}>
+            {player ? player.displayName : label}
+        </Text>
+        {player && <Text style={styles.playerSubtext}>Rank {player.rank}</Text>}
+      </View>
+      <MaterialCommunityIcons name="chevron-down" size={20} color={theme.colors.textSecondary} />
     </TouchableOpacity>
   );
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Mode Selector */}
-      <Card style={styles.modeCard}>
-        <Text style={styles.sectionTitle}>Scoring Mode</Text>
-        <View style={styles.modeSwitch}>
-          <TouchableOpacity 
-            style={[styles.modeBtn, scoreMode === 'live' && styles.activeModeBtn]} 
-            onPress={() => setScoreMode('live')}
-          >
-            <Text style={[styles.modeText, scoreMode === 'live' && styles.activeModeText]}>Live Score</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.modeBtn, scoreMode === 'manual' && styles.activeModeBtn]} 
-            onPress={() => setScoreMode('manual')}
-          >
-            <Text style={[styles.modeText, scoreMode === 'manual' && styles.activeModeText]}>Post-Match Entry</Text>
-          </TouchableOpacity>
-        </View>
-      </Card>
-
-      {/* Match Type */}
-      <View style={styles.typeSelector}>
-        <Text style={[styles.typeText, !isDoubles && styles.activeType]}>Singles</Text>
-        <Switch value={isDoubles} onValueChange={setIsDoubles} trackColor={{ true: '#38A169' }} />
-        <Text style={[styles.typeText, isDoubles && styles.activeType]}>Doubles</Text>
-      </View>
-
-      {/* Team Selection */}
-      <View style={styles.section}>
-        <Text style={styles.teamHeader}>Team 1</Text>
-        {renderPlayerSelector('Player 1', p1, 'p1')}
-        {isDoubles && renderPlayerSelector('Player 2', p2, 'p2')}
-      </View>
-
-      <View style={styles.vsContainer}>
-        <Text style={styles.vsText}>VS</Text>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.teamHeader}>Team 2</Text>
-        {renderPlayerSelector(isDoubles ? 'Player 3' : 'Player 2', p3, 'p3')}
-        {isDoubles && renderPlayerSelector('Player 4', p4, 'p4')}
-      </View>
-
-      {/* Match Config */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Match Settings</Text>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
+      <ScrollView contentContainerStyle={styles.container}>
         
-        <Text style={[styles.inputLabel, {marginTop: 8}]}>Sets</Text>
-        <View style={styles.modeSwitch}>
-           <TouchableOpacity 
-             style={[styles.modeBtn, matchType === 1 && styles.activeModeBtn]} 
-             onPress={() => setMatchType(1)}
-           >
-             <Text style={[styles.modeText, matchType === 1 && styles.activeModeText]}>1 Set</Text>
-           </TouchableOpacity>
-           <TouchableOpacity 
-             style={[styles.modeBtn, matchType === 3 && styles.activeModeBtn]} 
-             onPress={() => setMatchType(3)}
-           >
-             <Text style={[styles.modeText, matchType === 3 && styles.activeModeText]}>3 Sets</Text>
-           </TouchableOpacity>
+        {/* Header */}
+        <Text style={styles.screenTitle}>New Match</Text>
+        
+        {/* Mode Selector - Richer Chips */}
+        <View style={styles.richModeContainer}>
+            <TouchableOpacity 
+                style={[styles.richModeBtn, scoreMode === 'live' && styles.richModeActive]} 
+                onPress={() => setScoreMode('live')}>
+                <MaterialCommunityIcons 
+                    name="lightning-bolt" 
+                    size={20} 
+                    color={scoreMode === 'live' ? 'white' : theme.colors.textSecondary} 
+                />
+                <Text style={[styles.richModeText, scoreMode === 'live' && {color: 'white'}]}>Live Score</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+                style={[styles.richModeBtn, scoreMode === 'manual' && styles.richModeActive]} 
+                onPress={() => setScoreMode('manual')}>
+                 <MaterialCommunityIcons 
+                    name="file-document-edit" 
+                    size={20} 
+                    color={scoreMode === 'manual' ? 'white' : theme.colors.textSecondary} 
+                />
+                <Text style={[styles.richModeText, scoreMode === 'manual' && {color: 'white'}]}>Manual Entry</Text>
+            </TouchableOpacity>
         </View>
 
-        <Text style={[styles.inputLabel, {marginTop: 16}]}>Points per Set</Text>
-        <View style={styles.modeSwitch}>
-           {[11, 21, 30].map(pts => (
-             <TouchableOpacity 
-               key={pts}
-               style={[styles.modeBtn, pointsPerSet === pts && styles.activeModeBtn]} 
-               onPress={() => setPointsPerSet(pts as any)}
-             >
-               <Text style={[styles.modeText, pointsPerSet === pts && styles.activeModeText]}>{pts}</Text>
-             </TouchableOpacity>
-           ))}
+        {/* Singles / Doubles Toggle - Big Blocks */}
+        <View style={styles.formatContainer}>
+            <TouchableOpacity 
+                style={[styles.formatBox, !isDoubles && styles.formatBoxActive]} 
+                onPress={() => setIsDoubles(false)}
+            >
+                <MaterialCommunityIcons name="account" size={32} color={!isDoubles ? theme.colors.primary : theme.colors.textSecondary} />
+                <Text style={[styles.formatText, !isDoubles && styles.formatTextActive]}>Singles</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+                 style={[styles.formatBox, isDoubles && styles.formatBoxActive]} 
+                 onPress={() => setIsDoubles(true)}
+            >
+                <MaterialCommunityIcons name="account-group" size={32} color={isDoubles ? theme.colors.primary : theme.colors.textSecondary} />
+                <Text style={[styles.formatText, isDoubles && styles.formatTextActive]}>Doubles</Text>
+            </TouchableOpacity>
         </View>
 
-        <View style={[styles.typeSelector, {marginTop: 16, backgroundColor: 'white', padding: 8, borderRadius: 8}]}>
-            <Text style={styles.typeText}>Golden Point (No Deuce)</Text>
-            <Switch value={goldenPoint} onValueChange={setGoldenPoint} trackColor={{ true: '#F6AD55' }} />
-        </View>
-      </View>
+        {/* Player Selection Area */}
+        <View style={styles.matchupContainer}>
+          <View style={styles.teamBlock}>
+             <Text style={styles.teamLabel}>TEAM 1</Text>
+             {renderPlayerSelector('Player 1', p1, 'p1')}
+             {isDoubles && renderPlayerSelector('Partner', p2, 'p2')}
+          </View>
+          
+          <View style={styles.vsBadge}>
+              <Text style={styles.vsText}>VS</Text>
+          </View>
 
-      <Button 
-        title={scoreMode === 'live' ? "Start Match" : "Enter Scores"} 
-        onPress={startMatch} 
-        style={{ marginTop: 24, marginBottom: 40 }} 
-      />
-
-      {/* Player Selection Modal */}
-      <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Select Player</Text>
-          <Button title="Close" variant="outline" onPress={() => setModalVisible(false)} style={{ paddingVertical: 8 }} />
+          <View style={styles.teamBlock}>
+             <Text style={styles.teamLabel}>TEAM 2</Text>
+             {renderPlayerSelector('Opponent 1', p3, 'p3')}
+             {isDoubles && renderPlayerSelector('Opponent 2', p4, 'p4')}
+          </View>
         </View>
-        <FlatList
-          data={members}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => {
-            const isSelected = [p1?.id, p2?.id, p3?.id, p4?.id].includes(item.id);
-            return (
-              <TouchableOpacity 
-                style={[styles.memberItem, isSelected && styles.disabledItem]} 
-                onPress={() => !isSelected && selectPlayer(item)}
-                disabled={isSelected}
-              >
-                <View style={[styles.avatar, isSelected && styles.disabledAvatar]}>
-                  <Text style={styles.avatarText}>{item.displayName.charAt(0)}</Text>
-                </View>
-                <View>
-                  <Text style={[styles.memberName, isSelected && styles.disabledText]}>{item.displayName}</Text>
-                  <Text style={styles.memberEmail}>{item.email}</Text>
-                </View>
-                {isSelected && <Text style={styles.selectedLabel}>Selected</Text>}
-              </TouchableOpacity>
-            );
-          }}
+
+        {/* Rules Config - Collapsible Look */}
+        <Card style={styles.settingsCard}>
+          <View style={styles.settingRow}>
+             <View>
+                 <Text style={styles.settingLabel}>Sets</Text>
+                 <Text style={styles.settingSub}>{matchType === 3 ? "Best of 3" : "Single Set"}</Text>
+             </View>
+             <View style={styles.pillSelector}>
+                 <TouchableOpacity onPress={() => setMatchType(1)} style={[styles.pill, matchType === 1 && styles.pillActive]}>
+                     <Text style={[styles.pillText, matchType === 1 && styles.pillTextActive]}>1</Text>
+                 </TouchableOpacity>
+                 <TouchableOpacity onPress={() => setMatchType(3)} style={[styles.pill, matchType === 3 && styles.pillActive]}>
+                     <Text style={[styles.pillText, matchType === 3 && styles.pillTextActive]}>3</Text>
+                 </TouchableOpacity>
+             </View>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.settingRow}>
+             <View>
+                 <Text style={styles.settingLabel}>Points</Text>
+                 <Text style={styles.settingSub}>Target per set</Text>
+             </View>
+             <View style={styles.pillSelector}>
+                 {[11, 21, 30].map(pts => (
+                     <TouchableOpacity key={pts} onPress={() => setPointsPerSet(pts as any)} style={[styles.pill, pointsPerSet === pts && styles.pillActive]}>
+                         <Text style={[styles.pillText, pointsPerSet === pts && styles.pillTextActive]}>{pts}</Text>
+                     </TouchableOpacity>
+                 ))}
+             </View>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={[styles.settingRow, {borderBottomWidth: 0}]}>
+             <View>
+                 <Text style={styles.settingLabel}>Golden Point</Text>
+                 <Text style={styles.settingSub}>No deuce at game point</Text>
+             </View>
+             <Switch 
+                value={goldenPoint} 
+                onValueChange={setGoldenPoint} 
+                trackColor={{ true: theme.colors.primary, false: theme.colors.surfaceHighlight }} 
+             />
+          </View>
+        </Card>
+
+        <Button 
+          title="Start Match" 
+          onPress={startMatch} 
+          style={styles.startBtn}
+          textStyle={{ fontSize: 18 }}
         />
-      </Modal>
-    </ScrollView>
+
+        {/* Player Selection Modal */}
+        <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
+          <View style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Player</Text>
+              <Button title="Close" variant="outline" onPress={() => setModalVisible(false)} style={{ paddingVertical: 8, paddingHorizontal: 16 }} />
+            </View>
+            <FlatList
+              data={members}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ paddingBottom: 40 }}
+              renderItem={({ item }) => {
+                const isSelected = [p1?.id, p2?.id, p3?.id, p4?.id].includes(item.id);
+                return (
+                  <TouchableOpacity 
+                    style={[styles.memberItem, isSelected && styles.disabledItem]} 
+                    onPress={() => !isSelected && selectPlayer(item)}
+                    disabled={isSelected}
+                  >
+                    <View style={[styles.avatar, isSelected && styles.disabledAvatar]}>
+                      <Text style={styles.avatarText}>{item.displayName.charAt(0)}</Text>
+                    </View>
+                    <View>
+                      <Text style={[styles.memberName, isSelected && styles.disabledText]}>{item.displayName}</Text>
+                      <Text style={styles.memberEmail}>Rank: {item.rank}</Text>
+                    </View>
+                    {isSelected && <MaterialCommunityIcons name="check-circle" size={24} color={theme.colors.primary} style={styles.selectedIcon} />}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </Modal>
+      </ScrollView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: Theme) => StyleSheet.create({
   container: {
-    flex: 1,
     padding: 24,
-    backgroundColor: '#F5F7FA',
+    paddingBottom: 60,
   },
-  modeCard: {
-    marginBottom: 24,
-    padding: 16,
+  screenTitle: {
+      fontSize: 28,
+      fontWeight: '800',
+      color: theme.colors.textPrimary,
+      marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#718096',
-    marginBottom: 12,
+  richModeContainer: {
+      flexDirection: 'row',
+      backgroundColor: theme.colors.surface,
+      borderRadius: 16,
+      padding: 6,
+      marginBottom: 24,
+      shadowColor: '#000',
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
+      elevation: 2,
   },
-  modeSwitch: {
-    flexDirection: 'row',
-    backgroundColor: '#EDF2F7',
-    borderRadius: 8,
-    padding: 4,
+  richModeBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 12,
+      borderRadius: 12,
+      gap: 8,
   },
-  modeBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 6,
+  richModeActive: {
+      backgroundColor: theme.colors.primary,
   },
-  activeModeBtn: {
-    backgroundColor: 'white',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+  richModeText: {
+      fontWeight: 'bold',
+      color: theme.colors.textSecondary,
+      fontSize: 14,
   },
-  modeText: {
-    fontWeight: '600',
-    color: '#718096',
+  formatContainer: {
+      flexDirection: 'row',
+      gap: 16,
+      marginBottom: 32,
   },
-  activeModeText: {
-    color: '#2D3748',
+  formatBox: {
+      flex: 1,
+      backgroundColor: theme.colors.surface,
+      borderRadius: 16,
+      padding: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: 'transparent',
+      shadowColor: '#000',
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
+      elevation: 3,
   },
-  typeSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 32,
-    gap: 12,
+  formatBoxActive: {
+      borderColor: theme.colors.primary,
+      backgroundColor: theme.isDark ? '#1a202c' : '#F0FFF4',
   },
-  typeText: {
-    fontSize: 16,
-    color: '#A0AEC0',
-    fontWeight: '600',
+  formatText: {
+      marginTop: 8,
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.textSecondary,
   },
-  activeType: {
-    color: '#2D3748',
-    fontWeight: 'bold',
+  formatTextActive: {
+      color: theme.colors.primary,
+      fontWeight: '800',
   },
-  section: {
-    backgroundColor: 'white',
-    padding: 16,
-    borderRadius: 12,
+  matchupContainer: {
+      marginBottom: 32,
   },
-  teamHeader: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#718096',
-    marginBottom: 12,
-    textTransform: 'uppercase',
+  teamBlock: {
+      gap: 12,
   },
-  playerInput: {
-    height: 50,
-    backgroundColor: '#EDF2F7',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  teamLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: theme.colors.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+      marginBottom: 4,
   },
-  playerText: {
-    fontSize: 16,
-    color: '#2D3748',
-  },
-  placeholderText: {
-    color: '#A0AEC0',
-  },
-  dropdownIcon: {
-    color: '#A0AEC0',
-    fontSize: 12,
-  },
-  vsContainer: {
-    alignItems: 'center',
-    marginVertical: 16,
+  vsBadge: {
+      alignSelf: 'center',
+      backgroundColor: theme.colors.surface,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginVertical: 16,
+      borderWidth: 4,
+      borderColor: theme.colors.background,
+      zIndex: 10,
+      marginTop: -10,
+      marginBottom: -10,
+      shadowColor: '#000',
+      shadowOpacity: 0.1,
+      elevation: 4,
   },
   vsText: {
-    fontWeight: '900',
-    color: '#CBD5E0',
-    fontSize: 24,
+      fontWeight: '900',
+      fontSize: 12,
+      color: theme.colors.textPrimary,
+  },
+  playerCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surface,
+      padding: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+  },
+  miniAvatar: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+  },
+  miniAvatarText: {
+      color: 'white',
+      fontWeight: 'bold',
+      fontSize: 16,
+  },
+  playerText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.textPrimary,
+  },
+  playerSubtext: {
+      fontSize: 12,
+      color: theme.colors.textSecondary,
+  },
+  placeholderText: {
+      color: theme.colors.textSecondary,
+      fontStyle: 'italic',
+  },
+  settingsCard: {
+      padding: 0,
+      overflow: 'hidden',
+      marginBottom: 32,
+      borderRadius: 16,
+  },
+  settingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 16,
+  },
+  settingLabel: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.textPrimary,
+  },
+  settingSub: {
+      fontSize: 12,
+      color: theme.colors.textSecondary,
+      marginTop: 2,
+  },
+  divider: {
+      height: 1,
+      backgroundColor: theme.colors.border,
+      marginHorizontal: 16,
+  },
+  pillSelector: {
+      flexDirection: 'row',
+      backgroundColor: theme.colors.surfaceHighlight,
+      borderRadius: 8,
+      padding: 4,
+      gap: 4,
+  },
+  pill: {
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 6,
+  },
+  pillActive: {
+      backgroundColor: theme.colors.surface,
+      shadowColor: '#000',
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 1,
+  },
+  pillText: {
+      fontWeight: '600',
+      color: theme.colors.textSecondary,
+      fontSize: 14,
+  },
+  pillTextActive: {
+      color: theme.colors.textPrimary,
+  },
+  startBtn: {
+      borderRadius: 16,
+      paddingVertical: 18,
+      shadowColor: theme.colors.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 6,
+      backgroundColor: theme.colors.primary,
+  },
+  modalContainer: {
+    flex: 1,
   },
   modalHeader: {
     padding: 16,
@@ -331,57 +496,55 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#EDF2F7',
+    borderBottomColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: theme.colors.textPrimary,
   },
   memberItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#EDF2F7',
+    borderBottomColor: theme.colors.border,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    backgroundColor: '#38A169',
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    backgroundColor: theme.colors.primary,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   avatarText: {
     color: 'white',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 18,
   },
   memberName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#2D3748',
+    color: theme.colors.textPrimary,
   },
   memberEmail: {
     fontSize: 12,
-    color: '#718096',
-    marginLeft: 'auto',
+    color: theme.colors.textSecondary,
   },
   disabledItem: {
-    backgroundColor: '#F7FAFC',
-    opacity: 0.7,
+    backgroundColor: theme.colors.surfaceHighlight,
+    opacity: 0.6,
   },
   disabledAvatar: {
-    backgroundColor: '#CBD5E0',
+    backgroundColor: theme.colors.border,
   },
   disabledText: {
-    color: '#A0AEC0',
+    color: theme.colors.textSecondary,
   },
-  selectedLabel: {
-    marginLeft: 'auto',
-    fontSize: 12,
-    color: '#38A169',
-    fontWeight: 'bold',
+  selectedIcon: {
+      marginLeft: 'auto',
   },
 });

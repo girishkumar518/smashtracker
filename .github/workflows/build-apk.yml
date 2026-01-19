@@ -1,61 +1,39 @@
 name: Build Android APK
-
 on:
-  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+  workflow_dispatch: 
   push:
     branches:
-      - main        # Triggers on push to main
+      - main
 
 jobs:
   build:
-    name: Build APK
+    name: EAS Build (APK)
     runs-on: ubuntu-latest
     steps:
+      - name: Check for EXPO_TOKEN
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "You must provide an EXPO_TOKEN secret linked to this project's Expo account in this repo's secrets. https://expo.dev/accounts/[account]/settings/access-tokens"
+            exit 1
+          fi
+
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v3
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: 18.x
+          cache: npm
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
         with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Install dependencies
-        run: npm install
-
-      - name: Increase Swap Memory
-        run: |
-          sudo fallocate -l 4G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          echo "RAM check:"
-          free -h
-
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
+        run: npm ci
 
       - name: Build Android APK
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          NODE_OPTIONS: "--max-old-space-size=4096"
-        # --local: Runs build on the GitHub runner
-        # --non-interactive: Prevents prompts
-        # --output: Saves the file to the current directory
-        run: eas build --profile apk --platform android --local --non-interactive --output=./app-release.apk
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: smashtracker-apk
-          path: app-release.apk
-          retention-days: 7
+        run: eas build --platform android --profile apk --non-interactive --no-wait

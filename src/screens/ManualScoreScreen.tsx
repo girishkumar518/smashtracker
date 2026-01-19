@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Alert, ScrollView } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, TextInput, Alert, ScrollView, StatusBar } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import { useClub } from '../context/ClubContext';
 import { Match, MatchSet } from '../models/types';
+import { useTheme } from '../context/ThemeContext';
+import { Theme } from '../theme/theme';
 
 type ManualScoreParams = {
   isDoubles: boolean;
@@ -21,6 +23,9 @@ export default function ManualScoreScreen() {
   const params = route.params as ManualScoreParams;
   const { isEdit, match } = params;
   const { recordMatch, activeClub, deleteMatch, allUsers, members } = useClub();
+  const { theme, isDark } = useTheme();
+
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   // Helper to resolve name
   const getName = (id: string) => {
@@ -123,124 +128,136 @@ export default function ManualScoreScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-       {isEdit && (
-          <View style={{marginBottom: 16}}>
-              <Button title="Delete Match Record" onPress={handleDelete} style={{backgroundColor: '#E53E3E'}} />
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
+      <ScrollView style={styles.container}>
+        {isEdit && (
+            <View style={{marginBottom: 16}}>
+                <Button title="Delete Match Record" onPress={handleDelete} style={{backgroundColor: '#E53E3E'}} />
+            </View>
+        )}
+
+        <Text style={styles.title}>{isEdit ? 'Edit Match Result' : 'Enter Match Score'}</Text>
+        
+        <Card style={styles.card}>
+          <Text style={styles.setHeader}>Set 1</Text>
+          <View style={styles.inputRow}>
+            <View style={styles.playerInput}>
+                <Text style={styles.label}>{team1.map(p => p.name).join(' & ')}</Text>
+                <TextInput 
+                  style={styles.input} 
+                  keyboardType="numeric" 
+                  value={s1t1} 
+                  onChangeText={setS1T1} 
+                  placeholder="0"
+                  placeholderTextColor={theme.colors.textSecondary}
+                />
+            </View>
+            <Text style={styles.vs}>-</Text>
+            <View style={styles.playerInput}>
+                <Text style={styles.label}>{team2.map(p => p.name).join(' & ')}</Text>
+                <TextInput 
+                  style={styles.input} 
+                  keyboardType="numeric" 
+                  value={s1t2} 
+                  onChangeText={setS1T2} 
+                  placeholder="0"
+                  placeholderTextColor={theme.colors.textSecondary}
+                />
+            </View>
           </View>
-      )}
+        </Card>
 
-      <Text style={styles.title}>{isEdit ? 'Edit Match Result' : 'Enter Match Score'}</Text>
-      
-      <Card>
-        <Text style={styles.setHeader}>Set 1</Text>
-        <View style={styles.inputRow}>
-           <View style={styles.playerInput}>
-              <Text style={styles.label}>{team1.map(p => p.name).join(' & ')}</Text>
-              <TextInput 
-                style={styles.input} 
-                keyboardType="numeric" 
-                value={s1t1} 
-                onChangeText={setS1T1} 
-                placeholder="0"
-              />
-           </View>
-           <Text style={styles.vs}>-</Text>
-           <View style={styles.playerInput}>
-              <Text style={styles.label}>{team2.map(p => p.name).join(' & ')}</Text>
-              <TextInput 
-                style={styles.input} 
-                keyboardType="numeric" 
-                value={s1t2} 
-                onChangeText={setS1T2} 
-                placeholder="0"
-              />
-           </View>
-        </View>
-      </Card>
+        {currentMatchType === 3 && (
+          <>
+        <Card style={[styles.card, {marginTop: 16}]}>
+          <Text style={styles.setHeader}>Set 2</Text>
+          <View style={styles.inputRow}>
+            <View style={styles.playerInput}>
+                <Text style={styles.label}>{team1.map(p => p.name).join(' & ')}</Text>
+                <TextInput 
+                  style={styles.input} 
+                  keyboardType="numeric" 
+                  value={s2t1} 
+                  onChangeText={setS2T1} 
+                  placeholder="0"
+                  placeholderTextColor={theme.colors.textSecondary}
+                />
+            </View>
+            <Text style={styles.vs}>-</Text>
+            <View style={styles.playerInput}>
+                <Text style={styles.label}>{team2.map(p => p.name).join(' & ')}</Text>
+                <TextInput 
+                  style={styles.input} 
+                  keyboardType="numeric" 
+                  value={s2t2} 
+                  onChangeText={setS2T2} 
+                  placeholder="0"
+                  placeholderTextColor={theme.colors.textSecondary}
+                />
+            </View>
+          </View>
+        </Card>
 
-      {currentMatchType === 3 && (
-        <>
-      <Card style={{marginTop: 16}}>
-        <Text style={styles.setHeader}>Set 2</Text>
-        <View style={styles.inputRow}>
-           <View style={styles.playerInput}>
-              <Text style={styles.label}>{team1.map(p => p.name).join(' & ')}</Text>
-              <TextInput 
-                style={styles.input} 
-                keyboardType="numeric" 
-                value={s2t1} 
-                onChangeText={setS2T1} 
-                placeholder="0"
-              />
-           </View>
-           <Text style={styles.vs}>-</Text>
-           <View style={styles.playerInput}>
-              <Text style={styles.label}>{team2.map(p => p.name).join(' & ')}</Text>
-              <TextInput 
-                style={styles.input} 
-                keyboardType="numeric" 
-                value={s2t2} 
-                onChangeText={setS2T2} 
-                placeholder="0"
-              />
-           </View>
-        </View>
-      </Card>
+        <Card style={[styles.card, {marginTop: 16}]}>
+          <Text style={styles.setHeader}>Set 3 (If necessary)</Text>
+          <View style={styles.inputRow}>
+            <View style={styles.playerInput}>
+                <Text style={styles.label}>{team1.map(p => p.name).join(' & ')}</Text>
+                <TextInput 
+                  style={styles.input} 
+                  keyboardType="numeric" 
+                  value={s3t1} 
+                  onChangeText={setS3T1} 
+                  placeholder="0"
+                  placeholderTextColor={theme.colors.textSecondary}
+                />
+            </View>
+            <Text style={styles.vs}>-</Text>
+            <View style={styles.playerInput}>
+                <Text style={styles.label}>{team2.map(p => p.name).join(' & ')}</Text>
+                <TextInput 
+                  style={styles.input} 
+                  keyboardType="numeric" 
+                  value={s3t2} 
+                  onChangeText={setS3T2} 
+                  placeholder="0"
+                  placeholderTextColor={theme.colors.textSecondary}
+                />
+            </View>
+          </View>
+        </Card>
+        </>
+        )}
 
-      <Card style={{marginTop: 16}}>
-        <Text style={styles.setHeader}>Set 3 (If necessary)</Text>
-        <View style={styles.inputRow}>
-           <View style={styles.playerInput}>
-              <Text style={styles.label}>{team1.map(p => p.name).join(' & ')}</Text>
-              <TextInput 
-                style={styles.input} 
-                keyboardType="numeric" 
-                value={s3t1} 
-                onChangeText={setS3T1} 
-                placeholder="0"
-              />
-           </View>
-           <Text style={styles.vs}>-</Text>
-           <View style={styles.playerInput}>
-              <Text style={styles.label}>{team2.map(p => p.name).join(' & ')}</Text>
-              <TextInput 
-                style={styles.input} 
-                keyboardType="numeric" 
-                value={s3t2} 
-                onChangeText={setS3T2} 
-                placeholder="0"
-              />
-           </View>
-        </View>
-      </Card>
-      </>
-      )}
-
-      <View style={{marginTop: 24, marginBottom: 40}}>
-        <Button title={isEdit ? "Update Match" : "Save Result"} onPress={handleSubmit} />
-      </View>
-    </ScrollView>
+        <Button title="Save Match" onPress={handleSubmit} style={{ marginTop: 24, marginBottom: 40 }} />
+      </ScrollView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: Theme) => StyleSheet.create({
   container: {
-    flex: 1,
     padding: 16,
+    // backgroundColor handled in parent View
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 16,
     textAlign: 'center',
-    color: '#2D3748',
+    color: theme.colors.textPrimary,
+  },
+  card: {
+    backgroundColor: theme.colors.surface,
+    padding: 16,
   },
   setHeader: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
     marginBottom: 12,
-    color: '#4A5568',
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
   },
   inputRow: {
     flexDirection: 'row',
@@ -253,24 +270,26 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
+    fontWeight: '600',
     marginBottom: 8,
-    color: '#718096',
     textAlign: 'center',
+    color: theme.colors.textPrimary,
+    height: 32, // Fixed height for 2 lines of text
   },
   input: {
-    width: 60,
-    height: 50,
-    borderWidth: 1,
-    borderColor: '#CBD5E0',
+    width: '100%',
+    backgroundColor: theme.colors.surfaceHighlight, // Was #EDF2F7
     borderRadius: 8,
-    fontSize: 24,
+    padding: 12,
+    fontSize: 20,
+    fontWeight: 'bold',
     textAlign: 'center',
-    backgroundColor: '#F7FAFC',
+    color: theme.colors.textPrimary,
   },
   vs: {
+    marginHorizontal: 12,
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#CBD5E0',
-    marginHorizontal: 16,
+    color: theme.colors.disabled, // Was #CBD5E0
   },
 });

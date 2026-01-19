@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "444345343511",
-    "project_id": "smashtracker-3a044",
-    "storage_bucket": "smashtracker-3a044.firebasestorage.app"
+    "project_number": "951918212136",
+    "project_id": "smashtracker-prod",
+    "storage_bucket": "smashtracker-prod.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:444345343511:android:1cf67c1024fd2c6408c652",
+        "mobilesdk_app_id": "1:951918212136:android:1960517ecb1d1e27b3f11d",
         "android_client_info": {
-          "package_name": "com.badminton.smashtracker"
+          "package_name": "com.gk.smashtracker"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDj61VZkUrNNFYfuxlGo-dlqZFbLrbrzV0"
+          "current_key": "AIzaSyBTRZeAz69QA2kXfCx_iBS8y3oV_sD4nBo"
         }
       ],
       "services": {

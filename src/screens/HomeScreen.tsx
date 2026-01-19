@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, SafeAreaView, StatusBar, Platform, TouchableOpacity, Animated, Easing } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useClub } from '../context/ClubContext';
 import { useTheme } from '../context/ThemeContext';
@@ -208,7 +208,7 @@ export default function HomeScreen() {
               {/* Stats Grid */}
               <View style={styles.dashboardGrid}>
                 <View style={[styles.statCard, {flex:1 }]}>
-                  <Ionicons name="tennisball-outline" size={24} color={theme.colors.primary} />
+                  <MaterialCommunityIcons name="badminton" size={24} color={theme.colors.primary} />
                   <Text style={styles.statNumber}>{stats.played}</Text>
                   <Text style={styles.statLabel}>Matches</Text>
                 </View>
