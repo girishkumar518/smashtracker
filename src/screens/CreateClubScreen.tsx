@@ -1,8 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Alert, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Alert, TouchableWithoutFeedback, Keyboard, SafeAreaView } from 'react-native';
 import Button from '../components/Button';
 import { useNavigation } from '@react-navigation/native';
 import { useClub } from '../context/ClubContext';
+import { Ionicons } from '@expo/vector-icons';
+
+// Simple Theme
+const THEME = {
+  bg: '#171923',
+  surface: '#2D3748',
+  text: '#FFFFFF',
+  inputBg: '#4A5568',
+  accent: '#0F766E',
+};
 
 export default function CreateClubScreen() {
   const [clubName, setClubName] = useState('');
@@ -40,26 +50,42 @@ export default function CreateClubScreen() {
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <View style={styles.container}>
-        <Text style={styles.label}>Club Name</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g. Downtown Smashers"
-          value={clubName}
-          onChangeText={setClubName}
-          autoFocus
-        />
-        <Text style={styles.helper}>
-          You will become the Admin of this club and can invite others.
-        </Text>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+            <Text style={styles.title}>Create New Club</Text>
+            <Text style={styles.subtitle}>Start your own community</Text>
+        </View>
 
-        <Button 
-          title="Create Club" 
-          onPress={handleCreate} 
-          loading={loading}
-          style={{ marginTop: 24 }}
-        />
-      </View>
+        <View style={styles.form}>
+            <Text style={styles.label}>CLUB NAME</Text>
+            <View style={styles.inputContainer}>
+                <Ionicons name="people-circle-outline" size={24} color="#A0AEC0" style={{marginRight: 12}} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. Downtown Smashers"
+                  placeholderTextColor="#A0AEC0"
+                  value={clubName}
+                  onChangeText={setClubName}
+                  autoFocus
+                />
+            </View>
+
+            <Button 
+              title={loading ? "Creating..." : "Create Club"} 
+              onPress={handleCreate} 
+              disabled={loading}
+              style={{marginTop: 24, backgroundColor: THEME.accent}}
+            />
+            
+            <Button 
+                title="Cancel"
+                variant="outline"
+                onPress={() => navigation.goBack()}
+                style={{marginTop: 12, borderColor: '#4A5568'}}
+                textStyle={{color: '#A0AEC0'}}
+            />
+        </View>
+      </SafeAreaView>
     </TouchableWithoutFeedback>
   );
 }
@@ -67,27 +93,49 @@ export default function CreateClubScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: THEME.bg,
     padding: 24,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4A5568',
+  header: {
+      marginTop: 40,
+      marginBottom: 40,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'white',
     marginBottom: 8,
   },
-  input: {
-    height: 50,
-    backgroundColor: '#EDF2F7',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: '#2D3748',
-    marginBottom: 12,
+  subtitle: {
+      fontSize: 16,
+      color: '#A0AEC0'
   },
-  helper: {
+  form: {
+      backgroundColor: THEME.surface,
+      padding: 24,
+      borderRadius: 16,
+  },
+  label: {
     fontSize: 12,
-    color: '#718096',
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: '#CBD5E0',
+    letterSpacing: 1,
+  },
+  inputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: THEME.inputBg,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: '#4A5568'
+  },
+  input: {
+    flex: 1,
+    height: 50,
+    color: 'white',
+    fontSize: 16,
   },
 });
 

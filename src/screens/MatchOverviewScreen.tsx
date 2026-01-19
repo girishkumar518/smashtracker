@@ -1,8 +1,20 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { Match } from '../models/types';
 import { useClub } from '../context/ClubContext';
+
+// Rich UI Theme
+const THEME = {
+  bg: '#171923',
+  surface: '#2D3748',
+  text: '#FFFFFF',
+  textSecondary: '#A0AEC0',
+  accent: '#0F766E',
+  success: '#38A169',
+  highlight: '#3182CE'
+};
 
 type MatchOverviewParams = {
   match: Match;
@@ -29,56 +41,50 @@ export default function MatchOverviewScreen() {
 
   const renderStatRow = (label: string, val1: string | number, val2: string | number) => (
     <View style={styles.statRow}>
-      <Text style={styles.statValue}>{val1}</Text>
+      <Text style={[styles.statValue, { textAlign: 'left', color: THEME.highlight }]}>{val1}</Text>
       <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{val2}</Text>
+      <Text style={[styles.statValue, { textAlign: 'right', color: '#F56565' }]}>{val2}</Text>
     </View>
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1A202C" />
+      <StatusBar barStyle="light-content" backgroundColor={THEME.bg} />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.headerIcon}>←</Text>
+          <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Match overview</Text>
+        <Text style={styles.headerTitle}>Match Overview</Text>
         <TouchableOpacity style={styles.menuButton}>
-          <Text style={styles.headerIcon}>⋮</Text>
+          <Ionicons name="share-social-outline" size={24} color="white" />
         </TouchableOpacity>
-      </View>
-
-      {/* Tabs */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity style={[styles.tab, styles.activeTab]}>
-          <Text style={[styles.tabText, styles.activeTabText]}>Match</Text>
-        </TouchableOpacity>
-        {match.scores.map((_, i) => (
-          <TouchableOpacity key={i} style={styles.tab}>
-            <Text style={styles.tabText}>Set {i + 1}</Text>
-          </TouchableOpacity>
-        ))}
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         
-        {/* Date */}
-        <View style={styles.dateContainer}>
-           <Text style={styles.dateText}>📅 {new Date(match.date).toLocaleDateString()}  ⏱ {new Date(match.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
+        {/* Date Badge */}
+        <View style={{alignItems: 'center', marginBottom: 20}}>
+            <View style={styles.dateBadge}>
+                <Ionicons name="calendar-outline" size={14} color={THEME.textSecondary} style={{marginRight: 6}} />
+                <Text style={styles.dateText}>
+                    {new Date(match.date).toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric' })}  •  {new Date(match.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                </Text>
+            </View>
         </View>
 
         {/* Score Card */}
         <View style={styles.scoreCard}>
-           {/* Team 1 */}
+           {/* Team 1 (Blue) */}
            <View style={[styles.teamRow, styles.teamRowBorder]}>
-              <View style={[styles.teamIndicator, match.winnerTeam === 1 ? {backgroundColor: '#38A169'} : {backgroundColor: 'transparent'}]} />
+              <View style={[styles.teamIndicator, match.winnerTeam === 1 ? {backgroundColor: THEME.success} : {backgroundColor: 'transparent'}]} />
               <View style={{flex: 1, flexDirection: 'row', alignItems: 'center'}}>
-                 {/* Flag placeholder */}
-                 <View style={styles.flagPlaceholder} /> 
+                 <View style={[styles.avatarPlaceholder, {backgroundColor: THEME.highlight}]}>
+                    <Text style={{color:'white', fontWeight:'bold'}}>{t1Names.charAt(0)}</Text>
+                 </View>
                  <Text style={[styles.teamName, match.winnerTeam === 1 && styles.boldText]}>{t1Names}</Text>
-                 {match.winnerTeam === 1 && <Text style={styles.checkMark}>✓</Text>}
+                 {match.winnerTeam === 1 && <Ionicons name="checkmark-circle" size={18} color={THEME.success} style={{marginLeft: 8}} />}
               </View>
               <View style={styles.setScores}>
                  {match.scores.map((s, i) => (
@@ -87,13 +93,15 @@ export default function MatchOverviewScreen() {
               </View>
            </View>
 
-           {/* Team 2 */}
+           {/* Team 2 (Red) */}
            <View style={styles.teamRow}>
-              <View style={[styles.teamIndicator, match.winnerTeam === 2 ? {backgroundColor: '#38A169'} : {backgroundColor: 'transparent'}]} />
+              <View style={[styles.teamIndicator, match.winnerTeam === 2 ? {backgroundColor: THEME.success} : {backgroundColor: 'transparent'}]} />
               <View style={{flex: 1, flexDirection: 'row', alignItems: 'center'}}>
-                 <View style={styles.flagPlaceholder} />
+                 <View style={[styles.avatarPlaceholder, {backgroundColor: '#F56565'}]}>
+                    <Text style={{color:'white', fontWeight:'bold'}}>{t2Names.charAt(0)}</Text>
+                 </View>
                  <Text style={[styles.teamName, match.winnerTeam === 2 && styles.boldText]}>{t2Names}</Text>
-                 {match.winnerTeam === 2 && <Text style={styles.checkMark}>✓</Text>}
+                 {match.winnerTeam === 2 && <Ionicons name="checkmark-circle" size={18} color={THEME.success} style={{marginLeft: 8}} />}
               </View>
               <View style={styles.setScores}>
                  {match.scores.map((s, i) => (
@@ -103,41 +111,38 @@ export default function MatchOverviewScreen() {
            </View>
         </View>
 
-        {/* Share Button */}
-        <TouchableOpacity style={styles.shareBtn}>
-           <Text style={styles.shareBtnText}>Share score</Text>
-        </TouchableOpacity>
-
         {/* Stats Section */}
         <View style={styles.statsContainer}>
            <View style={styles.statsHeader}>
-              <Text style={styles.statsTeamName} numberOfLines={1}>{t1Names.split('/')[0]}...</Text>
+              <Text style={[styles.statsTeamName, {color: THEME.highlight}]} numberOfLines={1}>{t1Names.split('/')[0]}</Text>
               <View style={styles.statsPill}>
-                 <Text style={styles.statsPillText}>Stats</Text>
+                 <Text style={styles.statsPillText}>STATS COMPARISON</Text>
               </View>
-              <Text style={[styles.statsTeamName, {textAlign: 'right'}]} numberOfLines={1}>{t2Names.split('/')[0]}...</Text>
+              <Text style={[styles.statsTeamName, {textAlign: 'right', color: '#F56565'}]} numberOfLines={1}>{t2Names.split('/')[0]}</Text>
            </View>
            
-           {renderStatRow("Match points", t1TotalPoints, t2TotalPoints)}
-           {renderStatRow("Most consecutive points", match.stats?.maxConsecutivePts.team1 ?? "-", match.stats?.maxConsecutivePts.team2 ?? "-")}
-           {renderStatRow("Points won on serve", match.stats?.pointsWonOnServe.team1 ?? "-", match.stats?.pointsWonOnServe.team2 ?? "-")}
-           {renderStatRow("Total points played", totalPoints, totalPoints)}
+           <View style={styles.statsBody}>
+               {renderStatRow("Match Points", t1TotalPoints, t2TotalPoints)}
+               <View style={styles.divider} />
+               {renderStatRow("Max Streak", match.stats?.maxConsecutivePts.team1 ?? "-", match.stats?.maxConsecutivePts.team2 ?? "-")}
+               <View style={styles.divider} />
+               {renderStatRow("Points on Serve", match.stats?.pointsWonOnServe.team1 ?? "-", match.stats?.pointsWonOnServe.team2 ?? "-")}
+               <View style={styles.divider} />
+               {renderStatRow("Sets Won", match.winnerTeam === 1 ? (match.scores.length > 1 ? 2 : 1) : 0, match.winnerTeam === 2 ? (match.scores.length > 1 ? 2 : 1) : 0)} 
+           </View>
         </View>
         
         {/* Simple Graph Placeholder */}
+        {/* Only show if stats exist */}
         <View style={styles.graphCard}>
              <View style={styles.graphHeader}>
-                <Text style={styles.graphTitle}>Points Distribution</Text>
+                <Ionicons name="bar-chart-outline" size={18} color={THEME.textSecondary} style={{marginRight: 8}} />
+                <Text style={styles.graphTitle}>Performance Insight</Text>
              </View>
              <View style={styles.graphContainer}>
-                 {/* Simulating bars */}
-                 <View style={styles.graphBarGroup}>
-                    <View style={[styles.bar, {height: 100, backgroundColor: '#38B2AC'}]} />
-                    <View style={[styles.bar, {height: 40, backgroundColor: '#F56565'}]} />
-                    <View style={[styles.bar, {height: 60, backgroundColor: '#38B2AC'}]} />
-                    <View style={[styles.bar, {height: 80, backgroundColor: '#F56565'}]} />
-                 </View>
-                 <Text style={{color: '#718096', marginTop: 10, textAlign: 'center'}}>Mock Data Visualization</Text>
+                 <Text style={{color: THEME.textSecondary, textAlign: 'center', marginVertical: 20, fontStyle:'italic'}}>
+                    Detailed analytics coming soon...
+                 </Text>
              </View>
         </View>
 
@@ -149,194 +154,93 @@ export default function MatchOverviewScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#171923',
+    backgroundColor: THEME.bg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: THEME.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#2D3748',
+    borderBottomColor: '#4A5568',
   },
   headerTitle: {
-    fontSize: 18,
-    color: 'white',
-    fontWeight: '600',
-  },
-  headerIcon: {
-    fontSize: 24,
-    color: 'white',
-  },
-  backButton: {
-    padding: 8,
-  },
-  menuButton: {
-    padding: 8,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: 'white',
-  },
-  tabText: {
-    color: '#718096',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  activeTabText: {
+    fontSize: 16,
     color: 'white',
     fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
-  content: {
-    padding: 16,
+  backButton: { padding: 8 },
+  menuButton: { padding: 8 },
+  
+  content: { padding: 16 },
+  
+  // Date
+  dateBadge: {
+      flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)',
+      paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
   },
-  dateContainer: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  dateText: {
-    color: '#A0AEC0',
-    fontSize: 12,
-  },
+  dateText: { color: THEME.textSecondary, fontSize: 12, fontWeight: '500' },
+
+  // Score Card
   scoreCard: {
-    backgroundColor: '#2D3748',
-    borderRadius: 12,
+    backgroundColor: THEME.surface,
+    borderRadius: 16,
     overflow: 'hidden',
-    marginBottom: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    elevation: 4,
   },
   teamRow: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    height: 60,
+    height: 70,
   },
   teamRowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.2)',
+    borderBottomColor: '#4A5568',
   },
   teamIndicator: {
-    width: 4,
-    height: '100%',
-    marginRight: 12,
-    borderRadius: 2,
+    width: 6, height: 40, borderRadius: 3, marginRight: 16,
   },
-  flagPlaceholder: {
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      backgroundColor: '#4A5568',
-      marginRight: 12,
+  avatarPlaceholder: {
+      width: 32, height: 32, borderRadius: 16, marginRight: 12,
+      justifyContent: 'center', alignItems: 'center'
   },
-  teamName: {
-    color: '#CBD5E0',
-    fontSize: 14,
-    flex: 1,
-  },
-  boldText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  checkMark: {
-    color: '#38A169',
-    fontSize: 16,
-    marginRight: 12,
-    fontWeight: 'bold',
-  },
-  setScores: {
-    flexDirection: 'row',
-  },
+  teamName: { color: 'white', fontSize: 16, flex: 1, fontWeight: '500' },
+  boldText: { fontWeight: 'bold' },
+  setScores: { flexDirection: 'row', gap: 8 },
   setScoreText: {
-     color: '#CBD5E0',
-     fontSize: 16,
-     width: 30,
-     textAlign: 'center',
+     color: THEME.textSecondary, fontSize: 18, width: 30, textAlign: 'center', fontWeight: 'bold'
   },
-  shareBtn: {
-    backgroundColor: '#6B46C1', // Purple
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  shareBtnText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  statsContainer: {
-    marginBottom: 24,
-  },
-  statsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  statsTeamName: {
-      flex: 1,
-      color: '#718096',
-      fontSize: 12,
-  },
-  statsPill: {
-      backgroundColor: '#4A5568',
-      paddingHorizontal: 12,
-      paddingVertical: 4,
-      borderRadius: 12,
-  },
-  statsPillText: {
-      color: '#A0AEC0',
-      fontSize: 12,
-  },
-  statRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: 12,
-  },
-  statLabel: {
-      color: '#A0AEC0',
-      fontSize: 14,
-  },
-  statValue: {
-      color: 'white',
-      fontSize: 14,
-      width: 40,
-      textAlign: 'center',
-  },
+
+  // Stats
+  statsContainer: { marginBottom: 24 },
+  statsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  statsTeamName: { flex: 1, fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
+  statsPill: { backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
+  statsPillText: { color: THEME.textSecondary, fontSize: 10, fontWeight: 'bold' },
+  
+  statsBody: { backgroundColor: THEME.surface, borderRadius: 16, padding: 20 },
+  statRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 40 },
+  divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', width: '100%' },
+  statLabel: { color: THEME.textSecondary, fontSize: 12, fontWeight: '600' },
+  statValue: { fontSize: 16, fontWeight: 'bold', width: 40 },
+
+  // Graph
   graphCard: {
-      backgroundColor: '#2D3748',
-      borderRadius: 12,
+      backgroundColor: THEME.surface,
+      borderRadius: 16,
       padding: 16,
+      marginBottom: 30,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.05)'
   },
-  graphHeader: {
-      marginBottom: 16,
-      alignItems: 'center'
-  },
-  graphTitle: {
-      color: '#718096',
-      fontWeight: '600',
-  },
-  graphContainer: {
-      height: 200,
-      justifyContent: 'flex-end',
-      alignItems: 'center',
-  },
-  graphBarGroup: {
-      flexDirection: 'row',
-      alignItems: 'flex-end',
-      gap: 20
-  },
-  bar: {
-      width: 20,
-      borderRadius: 4,
-  }
+  graphHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  graphTitle: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+  graphContainer: { justifyContent: 'center', alignItems: 'center', height: 100 },
 });

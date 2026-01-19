@@ -1,9 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, SafeAreaView, StatusBar, Platform, Dimensions } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import Button from '../components/Button';
 import { useClub } from '../context/ClubContext';
 import { Match, MatchSet } from '../models/types';
+
+// Rich UI Theme
+const THEME = {
+  court: '#0F766E', // Deep Teal Green
+  courtBorder: '#FFFFFF',
+  lines: 'rgba(255,255,255,0.4)',
+  net: 'rgba(255,255,255,0.9)',
+  team1: '#3182CE', // Blue
+  team2: '#E53E3E', // Red
+  bg: '#171923',
+  surface: '#2D3748',
+  text: '#FFFFFF',
+  accent: '#F6AD55', // Orange/Gold for shuttle
+  scoreBg: '#000000',
+};
 
 // Types for params
 type LiveScoreParams = {
@@ -325,123 +341,144 @@ export default function LiveScoreScreen() {
 
      return (
         <View style={[
-            styles.playerBox, 
-            isServing && styles.servingBox,
-            isReceiving && styles.receivingBox
+            styles.playerPill,
+            isServing && styles.servingPill,
+            isReceiving && styles.receivingPill
         ]}>
-             <Text style={[
-                 styles.playerText, 
-                 isServing && {color: '#F6AD55'},
-                 isReceiving && {color: '#63B3ED'}
-             ]} numberOfLines={1}>
-                 {player?.name || (isDoubles ? 'P'+(playerIdx+1) : '')}
-             </Text>
-             {isServing && <View style={styles.shuttleIcon} />}
-             {isReceiving && <View style={styles.receiverDot} />}
+             <View style={[styles.avatarCircle, { backgroundColor: team === 1 ? THEME.team1 : THEME.team2 }]}>
+                 <Text style={styles.avatarText}>
+                    {player?.name?.charAt(0).toUpperCase() || 'P'}
+                 </Text>
+             </View>
+             
+             <View style={styles.pillContent}>
+                <Text style={styles.playerName} numberOfLines={1}>
+                    {player?.name || (isDoubles ? 'P'+(playerIdx+1) : '')}
+                </Text>
+                {isServing && <Text style={styles.roleText}>SERVING</Text>}
+             </View>
+
+             {isServing && (
+                 <View style={styles.shuttleBadge}>
+                     <Ionicons name="tennisball" size={14} color="#000" />
+                 </View>
+             )}
         </View>
      );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1A202C" />
+      <StatusBar barStyle="light-content" backgroundColor={THEME.bg} />
       
-      {/* Scoreboard */}
-      <View style={styles.scoreboard}>
-         <View style={styles.timerBar}>
-             <Text style={styles.setLabel}>SET {currentSet}</Text>
+      {/* Header / Scoreboard */}
+      <View style={styles.header}>
+         <View style={styles.setBadge}>
+             <Text style={styles.setBadgeTitle}>SET</Text>
+             <Text style={styles.setBadgeValue}>{currentSet}</Text>
          </View>
-         
-         <View style={[styles.scoreRow, servingTeam === 1 && styles.servingRow]}>
-             <Text style={styles.sbTeamName} numberOfLines={1}>{team1.map(p => p.name).join(' / ')}</Text>
-             <View style={styles.pointsContainer}>
-                 {sets.map((s, i) => <Text key={i} style={styles.pastSetScore}>{s.t1}</Text>)}
-                 <Text style={styles.currentScore}>{score1}</Text>
+
+         <View style={styles.scoreBoardResult}>
+             {/* Team 1 Score (Blue) */}
+             <View style={styles.scoreSide}>
+                 <Text style={[styles.bigScore, {color: THEME.team1}]}>{score1}</Text>
+                 <Text style={styles.teamNameLabel} numberOfLines={1}>{team1.map(p => p.name).join('/')}</Text>
+                 <View style={styles.setsDots}>
+                    {Array.from({length: setWins1}).map((_,i) => <View key={i} style={[styles.setDot, {backgroundColor: THEME.team1}]} />)}
+                 </View>
              </View>
-         </View>
 
-         <View style={styles.divider} />
+             <View style={styles.vsContainer}>
+                 <Text style={styles.vsText}>VS</Text>
+                 <View style={styles.setsHistory}>
+                    {sets.map((s, i) => (
+                        <Text key={i} style={styles.historyText}>{s.t1}-{s.t2}</Text>
+                    ))}
+                 </View>
+             </View>
 
-         <View style={[styles.scoreRow, servingTeam === 2 && styles.servingRow]}>
-             <Text style={styles.sbTeamName} numberOfLines={1}>{team2.map(p => p.name).join(' / ')}</Text>
-             <View style={styles.pointsContainer}>
-                 {sets.map((s, i) => <Text key={i} style={styles.pastSetScore}>{s.t2}</Text>)}
-                 <Text style={styles.currentScore}>{score2}</Text>
+             {/* Team 2 Score (Red) */}
+             <View style={styles.scoreSide}>
+                 <Text style={[styles.bigScore, {color: THEME.team2}]}>{score2}</Text>
+                 <Text style={styles.teamNameLabel} numberOfLines={1}>{team2.map(p => p.name).join('/')}</Text>
+                 <View style={styles.setsDots}>
+                    {Array.from({length: setWins2}).map((_,i) => <View key={i} style={[styles.setDot, {backgroundColor: THEME.team2}]} />)}
+                 </View>
              </View>
          </View>
       </View>
 
       {/* Court Visualisation */}
       <View style={styles.mainArea}>
-          {/* Court */}
-          <View style={styles.court}>
-             {/* Team 2 Side (Top) */}
-             <View style={styles.courtHalf}>
-                 <View style={styles.courtRow}>
-                     {/* Screen Left (T2 Right) */}
-                     <View style={[styles.courtBox, styles.borderRight, styles.borderBottom]}>
-                        {renderPlayerBox(2, 'L', true)}
-                     </View>
-                     {/* Screen Right (T2 Left) */}
-                     <View style={[styles.courtBox, styles.borderBottom]}>
-                        {renderPlayerBox(2, 'R', true)}
-                     </View>
-                 </View>
-             </View>
+          <View style={styles.courtBorder}>
+            <View style={styles.court}>
+                {/* Team 2 Side (Top) */}
+                <View style={styles.courtHalf}>
+                    <View style={styles.courtRow}>
+                        <View style={[styles.courtBox, styles.borderRight, styles.borderBottom]}>
+                            {renderPlayerBox(2, 'L', true)}
+                        </View>
+                        <View style={[styles.courtBox, styles.borderBottom]}>
+                            {renderPlayerBox(2, 'R', true)}
+                        </View>
+                    </View>
+                </View>
 
-             {/* Net */}
-             <View style={styles.net} />
+                {/* Net */}
+                <View style={styles.netLine}>
+                    <View style={styles.netMesh} />
+                </View>
 
-             {/* Team 1 Side (Bottom) */}
-             <View style={styles.courtHalf}>
-                 <View style={styles.courtRow}>
-                     {/* Screen Left (T1 Left) */}
-                     <View style={[styles.courtBox, styles.borderRight, styles.borderTop]}>
-                        {renderPlayerBox(1, 'L', false)}
-                     </View>
-                     {/* Screen Right (T1 Right) */}
-                     <View style={[styles.courtBox, styles.borderTop]}>
-                        {renderPlayerBox(1, 'R', false)}
-                     </View>
-                 </View>
-             </View>
+                {/* Team 1 Side (Bottom) */}
+                <View style={styles.courtHalf}>
+                    <View style={styles.courtRow}>
+                        <View style={[styles.courtBox, styles.borderRight, styles.borderTop]}>
+                            {renderPlayerBox(1, 'L', false)}
+                        </View>
+                        <View style={[styles.courtBox, styles.borderTop]}>
+                            {renderPlayerBox(1, 'R', false)}
+                        </View>
+                    </View>
+                </View>
+            </View>
           </View>
 
-          {/* Right Controls */}
+          {/* Right Controls (Floating Buttons) */}
           <View style={styles.controlsColumn}>
-              {/* Top - Team 2 */}
               <TouchableOpacity 
-                style={[styles.controlHalfBtn, {backgroundColor: '#F56565'}]} 
+                style={[styles.scoreBtn, {backgroundColor: THEME.team2}]} 
                 onPress={() => handleScore(2)}
+                activeOpacity={0.7}
               >
-                  <Text style={styles.sideBtnText}>+1</Text>
-                  <Text style={styles.sideBtnSub}>Team 2</Text>
+                  <Ionicons name="add" size={32} color="white" />
+                  <Text style={styles.btnLabel}>T2</Text>
               </TouchableOpacity>
               
-              {/* Net Spacer */}
-              <View style={styles.netSpacer} />
-
-              {/* Bottom - Team 1 */}
               <TouchableOpacity 
-                style={[styles.controlHalfBtn, {backgroundColor: '#4299E1'}]} 
+                style={[styles.scoreBtn, {backgroundColor: THEME.team1}]} 
                 onPress={() => handleScore(1)}
+                activeOpacity={0.7}
               >
-                  <Text style={styles.sideBtnText}>+1</Text>
-                  <Text style={styles.sideBtnSub}>Team 1</Text>
+                  <Ionicons name="add" size={32} color="white" />
+                  <Text style={styles.btnLabel}>T1</Text>
               </TouchableOpacity>
           </View>
       </View>
 
-
       <View style={styles.controlBar}>
-        <TouchableOpacity style={styles.controlBtn} onPress={undo} disabled={history.length === 0}>
-             <Text style={[styles.controlText, history.length === 0 && { color: '#718096' }]}>↩ Undo</Text>
+        <TouchableOpacity style={styles.actionBtn} onPress={undo} disabled={history.length === 0}>
+             <Ionicons name="arrow-undo-outline" size={24} color={history.length===0 ? '#555' : 'white'} />
+             <Text style={[styles.actionBtnText, history.length === 0 && { color: '#555' }]}>Undo</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.controlBtn} onPress={() => Alert.alert('Swap Sides', 'Manually swap ends (not visualised yet)')}>
-             <Text style={styles.controlText}>⇄ Swap</Text>
+        
+        <TouchableOpacity style={styles.actionBtn} onPress={() => Alert.alert('Stats', 'View detailed stats')}>
+             <Ionicons name="stats-chart-outline" size={24} color="white" />
+             <Text style={styles.actionBtnText}>Stats</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.controlBtn} onPress={() => navigation.goBack()}>
-             <Text style={styles.controlText}>End</Text>
+
+        <TouchableOpacity style={[styles.actionBtn, styles.endBtn]} onPress={() => navigation.goBack()}>
+             <Ionicons name="stop-circle-outline" size={24} color="#FEB2B2" />
+             <Text style={[styles.actionBtnText, {color: '#FEB2B2'}]}>End</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -451,96 +488,164 @@ export default function LiveScoreScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#171923',
+    backgroundColor: THEME.bg,
   },
-  scoreboard: {
-      backgroundColor: '#2D3748',
-      margin: 10,
-      borderRadius: 12,
-      padding: 8,
-      elevation: 4,
+  
+  // Header
+  header: {
+      backgroundColor: THEME.surface,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: '#4A5568',
+      height: 90,
   },
-  timerBar: { alignItems: 'center', marginBottom: 6 },
-  setLabel: { color: '#A0AEC0', fontSize: 12, fontWeight: 'bold' },
-  scoreRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
-  servingRow: { },
-  sbTeamName: { fontSize: 16, color: 'white', fontWeight: '600', flex: 1 },
-  pointsContainer: { flexDirection: 'row', alignItems: 'center' },
-  pastSetScore: { fontSize: 16, color: '#A0AEC0', marginRight: 12 },
-  currentScore: { fontSize: 24, fontWeight: 'bold', color: 'white', width: 32, textAlign: 'right' },
-  divider: { height: 1, backgroundColor: '#4A5568', marginVertical: 6 },
+  setBadge: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#1A202C',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+      marginRight: 10,
+  },
+  setBadgeTitle: { color: '#718096', fontSize: 10, fontWeight: 'bold' },
+  setBadgeValue: { color: 'white', fontSize: 18, fontWeight: 'bold' },
 
+  scoreBoardResult: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  scoreSide: { flex: 1, alignItems: 'center' },
+  bigScore: { fontSize: 36, fontWeight: '800' },
+  teamNameLabel: { color: '#A0AEC0', fontSize: 12, marginTop: -4, maxWidth: 80, textAlign:'center' },
+  setsDots: { flexDirection: 'row', marginTop: 4, height: 6 },
+  setDot: { width: 6, height: 6, borderRadius: 3, marginHorizontal: 1 },
+
+  vsContainer: { marginHorizontal: 10, alignItems: 'center' },
+  vsText: { color: '#718096', fontWeight: '900', fontSize: 12, fontStyle:'italic' },
+  setsHistory: { marginTop: 2 },
+  historyText: { color: '#718096', fontSize: 10 },
+
+  // Main Area
   mainArea: {
       flex: 1,
       flexDirection: 'row',
-      alignItems: 'stretch',
-      paddingHorizontal: 4,
+      padding: 8,
   },
-  sideBtn: {
-      width: 50,
-      borderRadius: 8,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginVertical: 10,
-  },
-  sideBtnText: {
-      color: 'white',
-      fontWeight: 'bold',
-      fontSize: 24
-  },
-  sideBtnSub: {
-      color: 'rgba(255,255,255,0.8)',
-      fontSize: 10,
-      fontWeight: '600',
-      marginTop: 4
+  courtBorder: {
+      flex: 1,
+      padding: 4,
+      backgroundColor: '#0F766E', // Match THEME.court
+      borderRadius: 6,
+      marginRight: 12,
+      borderWidth: 1,
+      borderColor: '#FFFFFF',
   },
   court: {
       flex: 1,
-      marginRight: 8,
-      marginVertical: 10,
       borderColor: 'white',
       borderWidth: 2,
-      backgroundColor: '#2D3748'
-  },
-  controlsColumn: {
-      width: 70,
-      marginVertical: 10,
-      justifyContent: 'space-between',
-  },
-  controlHalfBtn: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderRadius: 12,
-  },
-  netSpacer: {
-      height: 8,
   },
   courtHalf: { flex: 1 },
   courtRow: { flex: 1, flexDirection: 'row' },
   courtBox: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  borderRight: { borderRightWidth: 1, borderRightColor: 'rgba(255,255,255,0.3)' },
-  borderBottom: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.3)' },
-  borderTop: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.3)' },
-  net: { height: 4, backgroundColor: 'rgba(255,255,255,0.6)', width: '100%' },
   
-  playerBox: { alignItems: 'center' },
-  emptyBox: {},
-  servingBox: {  },
-  playerText: { color: 'white', fontWeight: '600', fontSize: 14, textAlign: 'center' },
-  shuttleIcon: {
-      width: 10, height: 10, borderRadius: 5, backgroundColor: '#F6AD55', marginTop: 4
-  },
-  receivingBox: {
-      backgroundColor: 'rgba(99, 179, 237, 0.1)', // Light blue tint
-      padding: 4,
-      borderRadius: 4
-  },
-  receiverDot: {
-      width: 6, height: 6, borderRadius: 3, backgroundColor: '#63B3ED', marginTop: 6
-  },
+  // Court Lines
+  borderRight: { borderRightWidth: 2, borderRightColor: THEME.lines },
+  borderBottom: { borderBottomWidth: 2, borderBottomColor: THEME.lines },
+  borderTop: { borderTopWidth: 2, borderTopColor: THEME.lines },
   
-  controlBar: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, backgroundColor: '#2D3748' },
-  controlBtn: { padding: 8 },
-  controlText: { color: '#E2E8F0', fontSize: 14, fontWeight: '600' }
+  netLine: { 
+      height: 12, 
+      backgroundColor: 'rgba(0,0,0,0.1)', 
+      width: '100%', 
+      justifyContent: 'center' 
+  },
+  netMesh: {
+      height: 2,
+      borderStyle: 'dotted',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.9)',
+      width: '100%',
+  },
+
+  // Player Pill
+  playerPill: { 
+      flexDirection: 'row', 
+      alignItems: 'center', 
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      paddingVertical: 5,
+      paddingHorizontal: 8,
+      borderRadius: 20,
+      minWidth: 90,
+      maxWidth: 130,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.2)',
+  },
+  t1Pill: { borderColor: 'rgba(66, 153, 225, 0.4)' },
+  t2Pill: { borderColor: 'rgba(245, 101, 101, 0.4)' },
+  
+  servingPill: { 
+      backgroundColor: 'rgba(30, 40, 50, 0.85)',
+      borderColor: THEME.accent,
+      transform: [{scale: 1.05}],
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
+  },
+  receivingPill: {
+      backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+
+  avatarCircle: {
+      width: 24, height: 24, borderRadius: 12,
+      justifyContent: 'center', alignItems: 'center',
+      marginRight: 6,
+  },
+  avatarText: { color: 'white', fontWeight: 'bold', fontSize: 10 },
+  
+  pillContent: { flex: 1 },
+  playerName: { color: 'white', fontWeight: 'bold', fontSize: 11 },
+  roleText: { color: THEME.accent, fontSize: 8, fontWeight: '700', marginTop: 1 },
+  
+  shuttleBadge: {
+      marginLeft: 4,
+      width: 16, height: 16, 
+      justifyContent: 'center', alignItems: 'center'
+  },
+
+  // Controls
+  controlsColumn: {
+      width: 70,
+      justifyContent: 'space-between',
+      paddingVertical: 4,
+  },
+  scoreBtn: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRadius: 16,
+      marginBottom: 8,
+      elevation: 4,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4.65,
+  },
+  btnLabel: { color: 'white', fontWeight: '900', fontSize: 16, marginTop: 4 },
+
+  controlBar: { 
+      flexDirection: 'row', 
+      justifyContent: 'space-around', 
+      paddingVertical: 12, 
+      paddingHorizontal: 16,
+      backgroundColor: '#2D3748',
+      borderTopWidth: 1,
+      borderTopColor: '#4A5568'
+  },
+  actionBtn: { alignItems: 'center' },
+  actionBtnText: { color: 'white', fontSize: 10, marginTop: 4, fontWeight: '600' },
+  endBtn: {},
 });

@@ -1,10 +1,24 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, SafeAreaView, StatusBar, Platform, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useClub } from '../context/ClubContext'; // Import useClub
 import Button from '../components/Button';
 import Card from '../components/Card';
 import { useNavigation } from '@react-navigation/native';
+
+// Rich UI Theme
+const THEME = {
+  bg: '#171923',
+  surface: '#2D3748',
+  text: '#FFFFFF',
+  textSecondary: '#A0AEC0',
+  accent: '#0F766E',
+  success: '#38A169',
+  danger: '#E53E3E',
+  cardBg: '#2D3748',
+  highlight: '#3182CE'
+};
 
 export default function HomeScreen() {
   const { user, signOut } = useAuth();
@@ -12,6 +26,7 @@ export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
 
+  // ... (Data helpers preserved)
   const getPlayerName = (id: string) => {
     // Try to find in allUsers (includes history), fallback to members, then Unknown
     const u = allUsers?.find(u => u.id === id) || members.find(m => m.id === id);
@@ -83,48 +98,53 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
+      <StatusBar barStyle="light-content" backgroundColor={THEME.bg} />
       <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Hello,</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
-             <View style={{flexDirection: 'row', alignItems: 'center'}}>
+        <View style={{flex: 1}}>
+          <Text style={styles.greeting}>Welcome back,</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.profileRow}>
+             <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{user?.displayName?.charAt(0).toUpperCase() || 'P'}</Text>
+             </View>
+             <View>
                 <Text style={styles.userName}>{user?.displayName || 'Player'}</Text>
-                <Text style={{marginLeft: 8, fontSize: 12, color: '#3182CE'}}>Edit</Text>
+                <Text style={styles.editProfileLink}>View Profile</Text>
              </View>
           </TouchableOpacity>
         </View>
-        <Button 
-          title="Log Out" 
-          onPress={signOut} 
-          variant="outline" 
-          style={{ paddingVertical: 8, paddingHorizontal: 16 }} 
-        />
+        <TouchableOpacity style={styles.logoutBtn} onPress={signOut}>
+            <Ionicons name="log-out-outline" size={24} color="#E53E3E" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView 
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="white" />
         }
       >
         {pendingClubs && pendingClubs.length > 0 && (
           <View style={{ marginBottom: 24 }}>
-            <Card style={{ backgroundColor: '#FFFBEB', borderColor: '#F6E05E', borderWidth: 1 }}>
-              <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#B7791F', marginBottom: 8 }}>
-                 Requests Pending
-              </Text>
+            <View style={[styles.alertCard, { borderColor: '#F6E05E', backgroundColor: 'rgba(246, 224, 94, 0.1)' }]}>
+              <View style={{flexDirection:'row', alignItems:'center', marginBottom: 8}}>
+                 <Ionicons name="time-outline" size={20} color="#F6E05E" />
+                 <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#F6E05E', marginLeft: 8 }}>
+                    Requests Pending
+                 </Text>
+              </View>
               {pendingClubs.map(club => (
-                <View key={club.id} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                   <Text style={{ color: '#744210' }}>{club.name}</Text>
-                   <Text style={{ color: '#744210', fontStyle: 'italic' }}>Waiting for approval</Text>
+                <View key={club.id} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4, paddingLeft: 28 }}>
+                   <Text style={{ color: '#F6E05E' }}>{club.name}</Text>
+                   <Text style={{ color: 'rgba(255,255,255,0.6)', fontStyle: 'italic', fontSize: 12 }}>Waiting for approval</Text>
                 </View>
               ))}
-            </Card>
+            </View>
           </View>
         )}
 
         {!activeClub ? (
           <View style={styles.emptyState}>
+            <Ionicons name="people-circle-outline" size={80} color={THEME.textSecondary} />
             <Text style={styles.emptyTitle}>No Club Found</Text>
             <Text style={styles.emptyText}>
               You are not currently a member of any badminton club.
@@ -132,74 +152,94 @@ export default function HomeScreen() {
             </Text>
             
             <View style={styles.actionButtons}>
-              <Button 
-                title="Create a Club" 
+              <TouchableOpacity 
+                style={[styles.bigActionBtn, {backgroundColor: THEME.accent}]}
                 onPress={() => navigation.navigate('CreateClub')} 
-                style={styles.actionBtn}
-              />
-              <Button 
-                title="Join a Club" 
-                variant="secondary"
-                onPress={() => {
-                  console.log('Navigating to JoinClub');
-                  navigation.navigate('JoinClub');
-                }}
-                style={styles.actionBtn}
-              />
+              >
+                  <Ionicons name="add-circle-outline" size={24} color="white" />
+                  <Text style={styles.bigActionBtnText}>Create a Club</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.bigActionBtn, {backgroundColor: '#4A5568'}]}
+                onPress={() => navigation.navigate('JoinClub')} 
+              >
+                  <Ionicons name="search-outline" size={24} color="white" />
+                  <Text style={styles.bigActionBtnText}>Join a Club</Text>
+              </TouchableOpacity>
             </View>
           </View>
         ) : (
           <View>
-            <Card>
-              <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+            {/* Club Card */}
+            <View style={styles.clubCard}>
+                <View style={styles.clubHeader}>
                   <View>
                     <Text style={styles.clubName}>{activeClub.name}</Text>
-                    <Text style={styles.clubRole}>Role: Admin</Text>
-                    <Text style={styles.clubCode}>Invite Code: {activeClub.inviteCode}</Text>
+                    <View style={styles.roleTag}>
+                        <Text style={styles.roleText}>ADMIN</Text>
+                    </View>
                   </View>
-                  <Button 
-                    title="Manage" 
-                    variant="outline"
-                    onPress={() => navigation.navigate('ClubManagement')}
-                    style={{ paddingVertical: 8, paddingHorizontal: 16 }}
-                  />
-              </View>
-            </Card>
+                  <TouchableOpacity onPress={() => navigation.navigate('ClubManagement')} style={styles.settingsBtn}>
+                      <Ionicons name="settings-outline" size={20} color="white" />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.codeBox}>
+                    <Text style={styles.codeLabel}>INVITE CODE</Text>
+                    <Text style={styles.codeValue}>{activeClub.inviteCode}</Text>
+                </View>
+            </View>
 
+            {/* Stats Grid */}
             <View style={styles.dashboardGrid}>
-              <Card style={styles.dashboardItem}>
+              <View style={styles.statCard}>
+                <Ionicons name="tennisball-outline" size={24} color={THEME.highlight} />
                 <Text style={styles.statNumber}>{stats.played}</Text>
-                <Text style={styles.statLabel}>Matches Played</Text>
-              </Card>
-              <Card style={styles.dashboardItem}>
+                <Text style={styles.statLabel}>Matches</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Ionicons name="trophy-outline" size={24} color="#F6AD55" />
                 <Text style={styles.statNumber}>{stats.winRate}%</Text>
                 <Text style={styles.statLabel}>Win Rate</Text>
-              </Card>
+              </View>
             </View>
 
             {stats.bestPartner && (
-              <Card style={{ marginTop: 16, padding: 16 }}>
-                 <Text style={styles.sectionTitle}>Best Partner</Text>
-                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                     <Text style={{ fontSize: 16, fontWeight: 'bold' }}>{stats.bestPartner.name}</Text>
-                     <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#38A169' }}>{stats.bestPartner.rate}% Win Rate</Text>
-                        <Text style={{ fontSize: 12, color: '#718096' }}>with {stats.bestPartner.played} matches</Text>
+              <View style={styles.partnerCard}>
+                 <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                     <View style={[styles.avatarSmall, {backgroundColor: '#805AD5'}]}>
+                        <Text style={styles.avatarTextSmall}>{stats.bestPartner.name.charAt(0)}</Text>
+                     </View>
+                     <View style={{marginLeft: 12}}>
+                        <Text style={styles.partnerLabel}>BEST PARTNER</Text>
+                        <Text style={styles.partnerName}>{stats.bestPartner.name}</Text>
                      </View>
                  </View>
-              </Card>
+                 <View style={{alignItems: 'flex-end'}}>
+                    <Text style={styles.partnerRate}>{stats.bestPartner.rate}%</Text>
+                    <Text style={styles.partnerSub}>Win Rate</Text>
+                 </View>
+              </View>
             )}
             
-
-            <Button 
-              title="Start New Match" 
+            <TouchableOpacity 
+              style={styles.floatingStartBtn} 
               onPress={() => navigation.navigate('MatchSetup')}
-              style={{ marginTop: 24 }}
-            />
+              activeOpacity={0.8}
+            >
+                <Ionicons name="play" size={24} color="white" style={{marginRight: 8}} />
+                <Text style={styles.startBtnText}>START NEW MATCH</Text>
+            </TouchableOpacity>
 
               {matches && matches.length > 0 && (
-              <View style={{ marginTop: 24, paddingBottom: 40 }}>
-                 <Text style={styles.sectionTitle}>Recent Matches</Text>
+              <View style={{ marginTop: 32, paddingBottom: 40 }}>
+                 <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Recent History</Text>
+                    <TouchableOpacity onPress={() => {}}>
+                        <Text style={styles.seeAllText}>See All</Text>
+                    </TouchableOpacity>
+                 </View>
+
                  {matches.slice(0, 5).map((m, i) => (
                    <TouchableOpacity 
                       key={m.id || i}
@@ -209,42 +249,51 @@ export default function HomeScreen() {
                               (navigation as any).navigate('ManualScore', { match: m, isEdit: true });
                           }
                       }}
-                      activeOpacity={0.8}
+                      activeOpacity={0.7}
+                      style={styles.matchItemContainer}
                    >
-                     <Card style={[styles.matchCard, { borderLeftWidth: 4, borderLeftColor: m.winnerTeam === 1 ? '#38A169' : '#3182CE' }]}>
-                        <Text style={styles.matchDate}>{new Date(m.date).toLocaleDateString()} • {new Date(m.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
-                        <View style={styles.matchRow}>
-                         <View style={{flex: 1}}>
-                            <Text style={[styles.matchTeam, m.winnerTeam === 1 ? styles.winnerTeam : styles.loserTeam]}>
-                              {m.team1.map(id => getPlayerName(id)).join(' & ')} {m.winnerTeam === 1 && '👑'}
+                     <View style={[styles.matchCard, { borderLeftColor: m.winnerTeam === 1 ? THEME.success : THEME.highlight }]}>
+                        <View style={styles.matchHeader}>
+                            <Text style={styles.matchDate}>{new Date(m.date).toLocaleDateString()}</Text>
+                            <Text style={[styles.matchResultBadge, {color: m.winnerTeam === 1 ? THEME.success : THEME.success}]}>
+                                {m.winnerTeam === 1 ? 'WON' : 'WON'}
                             </Text>
-                            <Text style={styles.vsLabel}>vs</Text>
-                            <Text style={[styles.matchTeam, m.winnerTeam === 2 ? styles.winnerTeam : styles.loserTeam]}>
-                              {m.team2.map(id => getPlayerName(id)).join(' & ')} {m.winnerTeam === 2 && '👑'}
-                            </Text>
-                         </View>
-                         <View style={{ alignItems: 'flex-end' }}>
-                            <Text style={styles.matchResult}>
-                               {/* Show Winner Name if single, or specific text */}
-                               {m.winnerTeam === 1 ? 'Winner' : 'Winner'} 
-                            </Text>
-                            <Text style={styles.matchScore}>
-                              {m.scores.map(s => `${s.team1Score}-${s.team2Score}`).join(', ')}
-                            </Text>
-                         </View>
-                      </View>
-                     </Card>
+                        </View>
+                        
+                        <View style={styles.matchBody}>
+                             {/* Team 1 */}
+                             <View style={styles.matchTeamRow}>
+                                 <View style={[styles.teamDot, {backgroundColor: m.winnerTeam===1 ? THEME.success : THEME.textSecondary}]} />
+                                 <Text style={[styles.matchTeamName, m.winnerTeam===1 && styles.boldText]}>
+                                     {m.team1.map(id => getPlayerName(id)).join(' / ')}
+                                 </Text>
+                                 <Text style={[styles.matchScoreText, m.winnerTeam===1 && styles.scoreWinner]}>
+                                     {m.scores.map(s => s.team1Score).join('-')}
+                                 </Text>
+                             </View>
+
+                             {/* Team 2 */}
+                             <View style={styles.matchTeamRow}>
+                                 <View style={[styles.teamDot, {backgroundColor: m.winnerTeam===2 ? THEME.success : THEME.textSecondary}]} />
+                                 <Text style={[styles.matchTeamName, m.winnerTeam===2 && styles.boldText]}>
+                                     {m.team2.map(id => getPlayerName(id)).join(' / ')}
+                                 </Text>
+                                 <Text style={[styles.matchScoreText, m.winnerTeam===2 && styles.scoreWinner]}>
+                                     {m.scores.map(s => s.team2Score).join('-')}
+                                 </Text>
+                             </View>
+                        </View>
+                     </View>
                    </TouchableOpacity>
                  ))}
-                 <Text style={{textAlign: 'center', marginTop: 8, color: '#A0AEC0', fontSize: 12}}>Long press a match to edit (Admin only)</Text>
+                 <Text style={styles.adminTip}>Long press a match to edit (Admin only)</Text>
               </View>
             )}
           </View>
         )}
 
-        <View style={{ marginTop: 40, alignItems: 'center', marginBottom: 20 }}>
-            <Text style={{ fontSize: 12, color: '#A0AEC0' }}>Developed by</Text>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#718096' }}>GK Software Ltd</Text>
+        <View style={styles.footer}>
+            <Text style={styles.footerText}>Developed by GK Software Ltd</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -254,7 +303,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: THEME.bg,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
@@ -262,134 +311,125 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 24,
-    // paddingTop: 60, // Removed hardcoded padding
-    backgroundColor: 'white',
+    backgroundColor: THEME.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#4A5568',
   },
   greeting: {
     fontSize: 14,
-    color: '#718096',
+    color: THEME.textSecondary,
+    marginBottom: 4,
   },
+  profileRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  avatar: { 
+      width: 40, height: 40, borderRadius: 20, backgroundColor: THEME.accent, 
+      justifyContent:'center', alignItems:'center', marginRight: 12 
+  },
+  avatarText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
   userName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2D3748',
-  },
-  content: {
-    padding: 24,
-  },
-  emptyState: {
-    alignItems: 'center',
-    marginTop: 60,
-  },
-  emptyTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2D3748',
-    marginBottom: 12,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#718096',
-    textAlign: 'center',
-    marginBottom: 32,
-    lineHeight: 24,
-  },
-  actionButtons: {
-    width: '100%',
-    gap: 16,
-  },
-  actionBtn: {
-    width: '100%',
-  },
-  clubName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2D3748',
-  },
-  clubRole: {
-    color: '#38A169',
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  clubCode: {
-    marginTop: 8,
-    color: '#718096',
-    fontSize: 12,
-  },
-  dashboardGrid: {
-    flexDirection: 'row',
-    gap: 16,
-    marginTop: 16,
-  },
-  dashboardItem: {
-    flex: 1,
-    alignItems: 'center',
-    padding: 24,
-  },
-  statNumber: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#2D3748',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#718096',
-    marginTop: 4,
-  },
-  sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2D3748',
-    marginBottom: 12,
+    color: 'white',
   },
+  editProfileLink: { fontSize: 12, color: THEME.highlight, marginTop: 2 },
+  logoutBtn: { padding: 8, backgroundColor: 'rgba(229, 62, 62, 0.1)', borderRadius: 8 },
+
+  content: {
+    padding: 16,
+  },
+  
+  // Empty State
+  emptyState: { alignItems: 'center', marginTop: 60, paddingHorizontal: 20 },
+  emptyTitle: { fontSize: 24, fontWeight: 'bold', color: 'white', marginBottom: 12, marginTop: 16 },
+  emptyText: { fontSize: 16, color: THEME.textSecondary, textAlign: 'center', marginBottom: 32, lineHeight: 24 },
+  actionButtons: { width: '100%', gap: 16 },
+  bigActionBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      padding: 16, borderRadius: 12, elevation: 2
+  },
+  bigActionBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16, marginLeft: 8 },
+
+  // Club Card
+  clubCard: {
+      backgroundColor: THEME.surface,
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.1)',
+  },
+  clubHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
+  clubName: { fontSize: 24, fontWeight: '800', color: 'white', marginBottom: 4 },
+  roleTag: { backgroundColor: 'rgba(56, 161, 105, 0.2)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start' },
+  roleText: { color: '#38A169', fontSize: 10, fontWeight: 'bold' },
+  settingsBtn: { padding: 4 },
+  codeBox: { backgroundColor: 'rgba(0,0,0,0.3)', padding: 12, borderRadius: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  codeLabel: { color: THEME.textSecondary, fontSize: 10, fontWeight: 'bold', letterSpacing: 1 },
+  codeValue: { color: 'white', fontSize: 16, fontWeight: 'bold', letterSpacing: 2 },
+
+  // Alert Card
+  alertCard: {
+      padding: 16, borderWidth: 1, borderRadius: 12
+  },
+
+  // Stats Grid
+  dashboardGrid: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  statCard: {
+      flex: 1, backgroundColor: THEME.surface, padding: 16, borderRadius: 16,
+      justifyContent: 'center', alignItems: 'center',
+      borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)'
+  },
+  statNumber: { fontSize: 28, fontWeight: 'bold', color: 'white', marginTop: 8 },
+  statLabel: { fontSize: 12, color: THEME.textSecondary },
+
+  // Partner Card
+  partnerCard: {
+      backgroundColor: '#2D3748', // Purple tint
+      padding: 16, borderRadius: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      marginBottom: 24, borderWidth: 1, borderColor: 'rgba(128, 90, 213, 0.3)'
+  },
+  avatarSmall: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+  avatarTextSmall: { color: 'white', fontWeight: 'bold' },
+  partnerLabel: { color: '#B794F4', fontSize: 10, fontWeight: 'bold', marginBottom: 2 },
+  partnerName: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  partnerRate: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  partnerSub: { color: THEME.textSecondary, fontSize: 10 },
+
+  // Floating Button
+  floatingStartBtn: {
+      backgroundColor: THEME.accent,
+      flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
+      padding: 16, borderRadius: 14,
+      shadowColor: THEME.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8,
+      elevation: 6, marginBottom: 8
+  },
+  startBtnText: { color: 'white', fontWeight: '900', fontSize: 16, letterSpacing: 1 },
+
+  // Match History
+  sectionHeader: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom: 12 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: 'white' },
+  seeAllText: { color: THEME.highlight, fontSize: 14 },
+  
+  matchItemContainer: { marginBottom: 12 },
   matchCard: {
-    marginBottom: 12,
-    padding: 12,
+      backgroundColor: THEME.surface,
+      padding: 16, borderRadius: 12,
+      borderLeftWidth: 4,
   },
-  matchDate: {
-    fontSize: 10,
-    color: '#A0AEC0',
-    marginBottom: 8,
-    textAlign: 'right',
-  },
-  matchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  matchTeam: {
-    fontSize: 14,
-    color: '#4A5568',
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  winnerTeam: {
-    color: '#2D3748',
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
-  loserTeam: {
-    color: '#A0AEC0',
-    fontSize: 13,
-  },
-  vsLabel: {
-    fontSize: 10,
-    color: '#CBD5E0',
-    marginVertical: 2,
-    fontWeight: 'bold',
-  },
-  matchResult: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#38A169',
-    textAlign: 'right',
-  },
-  matchScore: {
-    fontSize: 12,
-    color: '#718096',
-    textAlign: 'right',
-    marginTop: 2,
-  },
+  matchHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  matchDate: { color: THEME.textSecondary, fontSize: 12 },
+  matchResultBadge: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+  
+  matchBody: { gap: 8 },
+  matchTeamRow: { flexDirection: 'row', alignItems: 'center', justifyContent:'space-between' },
+  teamDot: { width: 6, height: 6, borderRadius: 3, marginRight: 8 },
+  matchTeamName: { flex:1, color: THEME.textSecondary, fontSize: 14 },
+  boldText: { color: 'white', fontWeight: '600' },
+  matchScoreText: { color: THEME.textSecondary, fontWeight: 'bold', width: 30, textAlign: 'right' },
+  scoreWinner: { color: 'white' },
+
+  adminTip: { textAlign: 'center', marginTop: 8, color: '#4A5568', fontSize: 10, fontStyle: 'italic' },
+  
+  footer: { alignItems: 'center', marginBottom: 20, marginTop: 20 },
+  footerText: { color: '#4A5568', fontSize: 12, fontWeight: '600' }
 });
