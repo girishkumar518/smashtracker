@@ -32,12 +32,22 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Increase Swap Memory
+        run: |
+          sudo fallocate -l 4G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          echo "RAM check:"
+          free -h
+
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
       - name: Build Android APK
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          NODE_OPTIONS: "--max-old-space-size=4096"
         # --local: Runs build on the GitHub runner
         # --non-interactive: Prevents prompts
         # --output: Saves the file to the current directory
