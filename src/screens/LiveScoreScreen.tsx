@@ -1,25 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, SafeAreaView, StatusBar, Platform, Dimensions } from 'react-native';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, SafeAreaView, StatusBar, Dimensions, Animated, Easing } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import Button from '../components/Button';
 import { useClub } from '../context/ClubContext';
 import { Match, MatchSet } from '../models/types';
-
-// Rich UI Theme
-const THEME = {
-  court: '#0F766E', // Deep Teal Green
-  courtBorder: '#FFFFFF',
-  lines: 'rgba(255,255,255,0.4)',
-  net: 'rgba(255,255,255,0.9)',
-  team1: '#3182CE', // Blue
-  team2: '#E53E3E', // Red
-  bg: '#171923',
-  surface: '#2D3748',
-  text: '#FFFFFF',
-  accent: '#F6AD55', // Orange/Gold for shuttle
-  scoreBg: '#000000',
-};
+import { useTheme } from '../context/ThemeContext';
+import { Theme } from '../theme/theme';
 
 // Types for params
 type LiveScoreParams = {
@@ -31,14 +17,35 @@ type LiveScoreParams = {
   goldenPoint?: boolean;
 };
 
+// Team Colors (Independent of App Theme for clarity)
+const TEAM_COLORS = {
+    team1: '#3182CE', // Blue
+    team2: '#E53E3E', // Red
+};
+
 export default function LiveScoreScreen() {
   const route = useRoute();
   const navigation = useNavigation();
+  const { theme, isDark } = useTheme();
+  
   const { 
     team1, team2, matchType = 3, isDoubles, 
     pointsPerSet = 21, goldenPoint = false 
   } = route.params as LiveScoreParams;
   const { recordMatch, activeClub } = useClub();
+
+  // Animation
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+        easing: Easing.out(Easing.cubic),
+    }).start();
+  }, []);
+
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   // Game State
   const [score1, setScore1] = useState(0);
@@ -49,17 +56,13 @@ export default function LiveScoreScreen() {
   const [setWins2, setSetWins2] = useState(0);
   
   // Advanced Service Logic
-  // 1 or 2 (Team); 0 or 1 (Player Index)
   const [servingTeam, setServingTeam] = useState<1 | 2>(1);
   const [serverIdx, setServerIdx] = useState(0); // 0 or 1
   const [receiverIdx, setReceiverIdx] = useState(0); // 0 or 1
 
-  // Player Positioning (simplified for UI: Even=Right, Odd=Left)
-  // We can just imply position from Score % 2. 
-  // But strictly, players swap sides only on OWN point win.
-  // Let's manually track "Who is on Right Court".
-  const [t1RightPlayerIdx, setT1RightPlayerIdx] = useState(0); // Start with P1 on Right (Even)
-  const [t2RightPlayerIdx, setT2RightPlayerIdx] = useState(0); // Start with P1 on Right (Even)
+  // Player Positioning
+  const [t1RightPlayerIdx, setT1RightPlayerIdx] = useState(0); 
+  const [t2RightPlayerIdx, setT2RightPlayerIdx] = useState(0); 
 
   // History for Undo
   const [history, setHistory] = useState<any[]>([]);
@@ -110,11 +113,7 @@ export default function LiveScoreScreen() {
     setMaxStreak1(newMaxStreak1);
     setMaxStreak2(newMaxStreak2);
 
-    const isMidGameWin = (winningTeam === 1 && !checkSetWin(score1 + 1, score2)) ||
-                         (winningTeam === 2 && !checkSetWin(score2 + 1, score1));
-
     if (winningTeam === 1) {
-      // Team 1 Wins Point
       if (checkSetWin(score1 + 1, score2)) {
         winSet(1);
         return;
@@ -124,28 +123,20 @@ export default function LiveScoreScreen() {
       setScore1(newScore);
 
       if (servingTeam === 1) {
-        // T1 served and won -> Swap sides
         if (isDoubles) {
           setT1RightPlayerIdx(prev => prev === 0 ? 1 : 0); // Swap
         }
       } else {
-        // T2 served and lost (Sideout) -> T1 serves now
         setServingTeam(1);
-        // Who serves? The one standing on the court corresponding to Even/Odd score
-        // Even score -> Right Court. Odd score -> Left Court.
         const isEven = newScore % 2 === 0;
-        
         if (!isDoubles) {
              setServerIdx(0);
         } else {
-             // If isEven, the person on Right serves.
-             // t1RightPlayerIdx tells us who is on Right.
              setServerIdx(isEven ? t1RightPlayerIdx : (t1RightPlayerIdx === 0 ? 1 : 0));
         }
       }
 
     } else {
-      // Team 2 Wins Point
       if (checkSetWin(score2 + 1, score1)) {
         winSet(2);
         return;
@@ -155,21 +146,15 @@ export default function LiveScoreScreen() {
       setScore2(newScore);
 
       if (servingTeam === 2) {
-        // T2 served and won -> Swap sides
         if (isDoubles) {
              setT2RightPlayerIdx(prev => prev === 0 ? 1 : 0); 
         }
       } else {
-        // T1 served and lost (Sideout) -> T2 serves now
         setServingTeam(2);
         const isEven = newScore % 2 === 0;
-
         if (!isDoubles) {
              setServerIdx(0);
         } else { 
-             // T2 Right Court is Screen Left. Even -> Right Court (Screen Left).
-             // t2RightPlayerIdx is Screen Right (T2 Left Court).
-             // So if Even, we want the OTHER player (Screen Left).
              const screenLeftIdx = t2RightPlayerIdx === 0 ? 1 : 0;
              setServerIdx(isEven ? screenLeftIdx : t2RightPlayerIdx);
         }
@@ -179,15 +164,12 @@ export default function LiveScoreScreen() {
 
   const checkSetWin = (s1: number, s2: number) => {
     if (goldenPoint) {
-       // Sudden death at MAX_POINTS
        if (s1 >= MAX_POINTS) return true;
        return false;
     }
-
-    // Standard Deuce Logic
     if (s1 >= MAX_POINTS) {
         if (s1 - s2 >= 2) return true;
-        if (s1 === CAP_POINTS) return true; // Max cap (e.g. 30)
+        if (s1 === CAP_POINTS) return true; 
     }
     return false;
   };
@@ -197,14 +179,12 @@ export default function LiveScoreScreen() {
     const newSets = [...sets, { t1: finalSetScore.team1Score, t2: finalSetScore.team2Score }];
     setSets(newSets);
     
-    // Reset scores & Positions for next set
     setScore1(0);
     setScore2(0);
-    setT1RightPlayerIdx(0); // Reset positions standard
+    setT1RightPlayerIdx(0); 
     setT2RightPlayerIdx(0);
-    // Winner serves first in next set? Or loser? Standard is winner serves.
     setServingTeam(winner); 
-    setServerIdx(0); // Default to first player serving
+    setServerIdx(0); 
     
     const newWins1 = winner === 1 ? setWins1 + 1 : setWins1;
     const newWins2 = winner === 2 ? setWins2 + 1 : setWins2;
@@ -251,7 +231,6 @@ export default function LiveScoreScreen() {
     setT1RightPlayerIdx(prev.t1RightPlayerIdx);
     setT2RightPlayerIdx(prev.t2RightPlayerIdx);
     
-    // Restore Stats
     setCurrStreak1(prev.currStreak1);
     setCurrStreak2(prev.currStreak2);
     setMaxStreak1(prev.maxStreak1);
@@ -262,45 +241,29 @@ export default function LiveScoreScreen() {
     setHistory(history.slice(0, -1));
   };
 
-  // Helper to render a player in a court box
   const renderPlayerBox = (team: 1 | 2, position: 'L' | 'R', isTop: boolean) => {
      let playerIdx = 0;
      if (team === 1) {
-        // Team 1 (Bottom)
-        // t1RightPlayerIdx tells us who is on Right.
         const rightIdx = t1RightPlayerIdx;
         const leftIdx = rightIdx === 0 ? 1 : 0;
         playerIdx = position === 'R' ? rightIdx : leftIdx;
      } else {
-        // Team 2 (Top) - Inverted view?
-        // Standard view: Top Right is "Left" from their perspective? 
-        // Let's stick to screen-absolute Left/Right for simplicity.
-        // Screen Right = Team 2's Left (if facing net).
-        // Let's keep it abstract: "Right side of screen".
         const rightIdx = t2RightPlayerIdx;
         const leftIdx = rightIdx === 0 ? 1 : 0;
         playerIdx = position === 'R' ? rightIdx : leftIdx;
      }
 
-     // If singles, we only use the 'Right' box (Even) and 'Left' box (Odd) to show position?
-     // No, singles player takes whole court.
-     // But we visualise service box.
      if (!isDoubles) {
-         // In Singles, BOTH players position relative to the Server's Score (Diagonal Service)
          const servingScore = servingTeam === 1 ? score1 : score2;
          const isEvenServe = servingScore % 2 === 0;
 
          if (team === 1) {
-             // Team 1 (Bottom)
-             // Even Serve -> Right (BR). Odd Serve -> Left (BL).
              const shouldBeHere = (isEvenServe && position === 'R') || (!isEvenServe && position === 'L');
              if (!shouldBeHere) return <View style={styles.emptyBox} />;
              playerIdx = 0;
          }
          
          if (team === 2) {
-             // Team 2 (Top)
-             // Even Serve -> Left (TL/Screen Left). Odd Serve -> Right (TR/Screen Right).
              const shouldBeHere = (isEvenServe && position === 'L') || (!isEvenServe && position === 'R');
              if (!shouldBeHere) return <View style={styles.emptyBox} />;
              playerIdx = 0;
@@ -308,32 +271,19 @@ export default function LiveScoreScreen() {
      }
 
      const player = team === 1 ? team1[playerIdx] : team2[playerIdx];
-     if (!player && isDoubles) return <View style={styles.emptyBox} />; // Short team?
+     if (!player && isDoubles) return <View style={styles.emptyBox} />; 
 
      const isServing = servingTeam === team && serverIdx === playerIdx;
      
-     // Highlight Receiver
      let isReceiving = false;
      if (team !== servingTeam) { 
          const servingScore = servingTeam === 1 ? score1 : score2;
          const isEvenScore = servingScore % 2 === 0;
          
-         // Logic: Receiver is diagonal to Server
          if (servingTeam === 1) {
-             // T1 Serves (Bottom)
-             // Even Score (Right Court) -> Receives Top Left (L)
-             // Odd Score (Left Court) -> Receives Top Right (R)
              if (isEvenScore && position === 'L') isReceiving = true;
              if (!isEvenScore && position === 'R') isReceiving = true;
          } else {
-             // T2 Serves (Top)
-             // Even Score (Right Court = Screen Left) -> Receives Bottom Right (R)
-             // Odd Score (Left Court = Screen Right) -> Receives Bottom Left (L)
-             
-             // Wait, T2 Right Court is Screen Left.
-             // Diagonal from Screen Left (Top) is Screen Right (Bottom).
-             // So T2 Even Score -> Receives Bottom Right ('R').
-             
              if (isEvenScore && position === 'R') isReceiving = true;
              if (!isEvenScore && position === 'L') isReceiving = true;
          }
@@ -343,9 +293,10 @@ export default function LiveScoreScreen() {
         <View style={[
             styles.playerPill,
             isServing && styles.servingPill,
-            isReceiving && styles.receivingPill
+            isReceiving && styles.receivingPill,
+            team === 1 ? styles.t1Pill : styles.t2Pill
         ]}>
-             <View style={[styles.avatarCircle, { backgroundColor: team === 1 ? THEME.team1 : THEME.team2 }]}>
+             <View style={[styles.avatarCircle, { backgroundColor: team === 1 ? TEAM_COLORS.team1 : TEAM_COLORS.team2 }]}>
                  <Text style={styles.avatarText}>
                     {player?.name?.charAt(0).toUpperCase() || 'P'}
                  </Text>
@@ -369,7 +320,7 @@ export default function LiveScoreScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.bg} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
       
       {/* Header / Scoreboard */}
       <View style={styles.header}>
@@ -381,10 +332,10 @@ export default function LiveScoreScreen() {
          <View style={styles.scoreBoardResult}>
              {/* Team 1 Score (Blue) */}
              <View style={styles.scoreSide}>
-                 <Text style={[styles.bigScore, {color: THEME.team1}]}>{score1}</Text>
+                 <Text style={[styles.bigScore, {color: TEAM_COLORS.team1}]}>{score1}</Text>
                  <Text style={styles.teamNameLabel} numberOfLines={1}>{team1.map(p => p.name).join('/')}</Text>
                  <View style={styles.setsDots}>
-                    {Array.from({length: setWins1}).map((_,i) => <View key={i} style={[styles.setDot, {backgroundColor: THEME.team1}]} />)}
+                    {Array.from({length: setWins1}).map((_,i) => <View key={i} style={[styles.setDot, {backgroundColor: TEAM_COLORS.team1}]} />)}
                  </View>
              </View>
 
@@ -399,17 +350,17 @@ export default function LiveScoreScreen() {
 
              {/* Team 2 Score (Red) */}
              <View style={styles.scoreSide}>
-                 <Text style={[styles.bigScore, {color: THEME.team2}]}>{score2}</Text>
+                 <Text style={[styles.bigScore, {color: TEAM_COLORS.team2}]}>{score2}</Text>
                  <Text style={styles.teamNameLabel} numberOfLines={1}>{team2.map(p => p.name).join('/')}</Text>
                  <View style={styles.setsDots}>
-                    {Array.from({length: setWins2}).map((_,i) => <View key={i} style={[styles.setDot, {backgroundColor: THEME.team2}]} />)}
+                    {Array.from({length: setWins2}).map((_,i) => <View key={i} style={[styles.setDot, {backgroundColor: TEAM_COLORS.team2}]} />)}
                  </View>
              </View>
          </View>
       </View>
 
       {/* Court Visualisation */}
-      <View style={styles.mainArea}>
+      <Animated.View style={[styles.mainArea, {opacity: fadeAnim}]}>
           <View style={styles.courtBorder}>
             <View style={styles.court}>
                 {/* Team 2 Side (Top) */}
@@ -446,7 +397,7 @@ export default function LiveScoreScreen() {
           {/* Right Controls (Floating Buttons) */}
           <View style={styles.controlsColumn}>
               <TouchableOpacity 
-                style={[styles.scoreBtn, {backgroundColor: THEME.team2}]} 
+                style={[styles.scoreBtn, {backgroundColor: TEAM_COLORS.team2}]} 
                 onPress={() => handleScore(2)}
                 activeOpacity={0.7}
               >
@@ -455,7 +406,7 @@ export default function LiveScoreScreen() {
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={[styles.scoreBtn, {backgroundColor: THEME.team1}]} 
+                style={[styles.scoreBtn, {backgroundColor: TEAM_COLORS.team1}]} 
                 onPress={() => handleScore(1)}
                 activeOpacity={0.7}
               >
@@ -463,68 +414,68 @@ export default function LiveScoreScreen() {
                   <Text style={styles.btnLabel}>T1</Text>
               </TouchableOpacity>
           </View>
-      </View>
+      </Animated.View>
 
       <View style={styles.controlBar}>
         <TouchableOpacity style={styles.actionBtn} onPress={undo} disabled={history.length === 0}>
-             <Ionicons name="arrow-undo-outline" size={24} color={history.length===0 ? '#555' : 'white'} />
-             <Text style={[styles.actionBtnText, history.length === 0 && { color: '#555' }]}>Undo</Text>
+             <Ionicons name="arrow-undo-outline" size={24} color={history.length===0 ? theme.colors.textSecondary : theme.colors.textPrimary} />
+             <Text style={[styles.actionBtnText, { color: history.length === 0 ? theme.colors.textSecondary : theme.colors.textPrimary }]}>Undo</Text>
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.actionBtn} onPress={() => Alert.alert('Stats', 'View detailed stats')}>
-             <Ionicons name="stats-chart-outline" size={24} color="white" />
+             <Ionicons name="stats-chart-outline" size={24} color={theme.colors.textPrimary} />
              <Text style={styles.actionBtnText}>Stats</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.actionBtn, styles.endBtn]} onPress={() => navigation.goBack()}>
-             <Ionicons name="stop-circle-outline" size={24} color="#FEB2B2" />
-             <Text style={[styles.actionBtnText, {color: '#FEB2B2'}]}>End</Text>
+             <Ionicons name="stop-circle-outline" size={24} color={theme.colors.error} />
+             <Text style={[styles.actionBtnText, {color: theme.colors.error}]}>End</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: THEME.bg,
+    backgroundColor: theme.colors.background,
   },
   
   // Header
   header: {
-      backgroundColor: THEME.surface,
+      backgroundColor: theme.colors.surface,
       flexDirection: 'row',
       alignItems: 'center',
       paddingVertical: 12,
       paddingHorizontal: 8,
       borderBottomWidth: 1,
-      borderBottomColor: '#4A5568',
+      borderBottomColor: theme.colors.surfaceHighlight,
       height: 90,
   },
   setBadge: {
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#1A202C',
+      backgroundColor: theme.colors.surfaceHighlight,
       paddingHorizontal: 8,
       paddingVertical: 4,
       borderRadius: 6,
       marginRight: 10,
   },
-  setBadgeTitle: { color: '#718096', fontSize: 10, fontWeight: 'bold' },
-  setBadgeValue: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  setBadgeTitle: { color: theme.colors.textSecondary, fontSize: 10, fontWeight: 'bold' },
+  setBadgeValue: { color: theme.colors.textPrimary, fontSize: 18, fontWeight: 'bold' },
 
   scoreBoardResult: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   scoreSide: { flex: 1, alignItems: 'center' },
   bigScore: { fontSize: 36, fontWeight: '800' },
-  teamNameLabel: { color: '#A0AEC0', fontSize: 12, marginTop: -4, maxWidth: 80, textAlign:'center' },
+  teamNameLabel: { color: theme.colors.textSecondary, fontSize: 12, marginTop: -4, maxWidth: 80, textAlign:'center' },
   setsDots: { flexDirection: 'row', marginTop: 4, height: 6 },
   setDot: { width: 6, height: 6, borderRadius: 3, marginHorizontal: 1 },
 
   vsContainer: { marginHorizontal: 10, alignItems: 'center' },
-  vsText: { color: '#718096', fontWeight: '900', fontSize: 12, fontStyle:'italic' },
+  vsText: { color: theme.colors.textSecondary, fontWeight: '900', fontSize: 12, fontStyle:'italic' },
   setsHistory: { marginTop: 2 },
-  historyText: { color: '#718096', fontSize: 10 },
+  historyText: { color: theme.colors.textSecondary, fontSize: 10 },
 
   // Main Area
   mainArea: {
@@ -535,25 +486,26 @@ const styles = StyleSheet.create({
   courtBorder: {
       flex: 1,
       padding: 4,
-      backgroundColor: '#0F766E', // Match THEME.court
+      backgroundColor: theme.colors.court.background,
       borderRadius: 6,
       marginRight: 12,
       borderWidth: 1,
-      borderColor: '#FFFFFF',
+      borderColor: theme.colors.court.lines,
   },
   court: {
       flex: 1,
-      borderColor: 'white',
+      borderColor: theme.colors.court.lines,
       borderWidth: 2,
   },
   courtHalf: { flex: 1 },
   courtRow: { flex: 1, flexDirection: 'row' },
   courtBox: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyBox: { flex: 1 },
   
   // Court Lines
-  borderRight: { borderRightWidth: 2, borderRightColor: THEME.lines },
-  borderBottom: { borderBottomWidth: 2, borderBottomColor: THEME.lines },
-  borderTop: { borderTopWidth: 2, borderTopColor: THEME.lines },
+  borderRight: { borderRightWidth: 2, borderRightColor: theme.colors.court.lines },
+  borderBottom: { borderBottomWidth: 2, borderBottomColor: theme.colors.court.lines },
+  borderTop: { borderTopWidth: 2, borderTopColor: theme.colors.court.lines },
   
   netLine: { 
       height: 12, 
@@ -586,8 +538,8 @@ const styles = StyleSheet.create({
   t2Pill: { borderColor: 'rgba(245, 101, 101, 0.4)' },
   
   servingPill: { 
-      backgroundColor: 'rgba(30, 40, 50, 0.85)',
-      borderColor: THEME.accent,
+      backgroundColor: theme.colors.surface, 
+      borderColor: theme.colors.secondary,
       transform: [{scale: 1.05}],
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 2 },
@@ -596,7 +548,7 @@ const styles = StyleSheet.create({
       elevation: 5,
   },
   receivingPill: {
-      backgroundColor: 'rgba(255,255,255,0.1)',
+      backgroundColor: theme.colors.primary + '60', 
   },
 
   avatarCircle: {
@@ -608,7 +560,7 @@ const styles = StyleSheet.create({
   
   pillContent: { flex: 1 },
   playerName: { color: 'white', fontWeight: 'bold', fontSize: 11 },
-  roleText: { color: THEME.accent, fontSize: 8, fontWeight: '700', marginTop: 1 },
+  roleText: { color: theme.colors.secondary, fontSize: 8, fontWeight: '700', marginTop: 1 },
   
   shuttleBadge: {
       marginLeft: 4,
@@ -641,11 +593,11 @@ const styles = StyleSheet.create({
       justifyContent: 'space-around', 
       paddingVertical: 12, 
       paddingHorizontal: 16,
-      backgroundColor: '#2D3748',
+      backgroundColor: theme.colors.surface,
       borderTopWidth: 1,
-      borderTopColor: '#4A5568'
+      borderTopColor: theme.colors.surfaceHighlight
   },
   actionBtn: { alignItems: 'center' },
-  actionBtnText: { color: 'white', fontSize: 10, marginTop: 4, fontWeight: '600' },
+  actionBtnText: { color: theme.colors.textPrimary, fontSize: 10, marginTop: 4, fontWeight: '600' },
   endBtn: {},
 });

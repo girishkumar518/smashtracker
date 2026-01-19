@@ -1,24 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TextInput, Alert, TouchableWithoutFeedback, Keyboard, SafeAreaView } from 'react-native';
 import Button from '../components/Button';
 import { useNavigation } from '@react-navigation/native';
 import { useClub } from '../context/ClubContext';
 import { Ionicons } from '@expo/vector-icons';
-
-// Simple Theme
-const THEME = {
-  bg: '#171923',
-  surface: '#2D3748',
-  text: '#FFFFFF',
-  inputBg: '#4A5568',
-  accent: '#0F766E',
-};
+import { useTheme } from '../context/ThemeContext';
+import { Theme } from '../theme/theme';
 
 export default function CreateClubScreen() {
   const [clubName, setClubName] = useState('');
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation();
   const { createClub } = useClub();
+  const { theme, isDark } = useTheme();
+
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const handleCreate = async () => {
     if (!clubName.trim()) {
@@ -30,12 +26,10 @@ export default function CreateClubScreen() {
     try {
       console.log('Attempting to create club:', clubName);
       
-      // Create a timeout promise that rejects after 10 seconds
       const timeout = new Promise((_, reject) => {
           setTimeout(() => reject(new Error('Connection timed out. Check your internet or Firebase settings.')), 10000);
       });
 
-      // Race the createClub against the timeout
       await Promise.race([createClub(clubName), timeout]);
 
       Alert.alert('Success', `Club "${clubName}" created!`);
@@ -59,11 +53,11 @@ export default function CreateClubScreen() {
         <View style={styles.form}>
             <Text style={styles.label}>CLUB NAME</Text>
             <View style={styles.inputContainer}>
-                <Ionicons name="people-circle-outline" size={24} color="#A0AEC0" style={{marginRight: 12}} />
+                <Ionicons name="people-circle-outline" size={24} color={theme.colors.textSecondary} style={{marginRight: 12}} />
                 <TextInput
                   style={styles.input}
                   placeholder="e.g. Downtown Smashers"
-                  placeholderTextColor="#A0AEC0"
+                  placeholderTextColor={theme.colors.textSecondary}
                   value={clubName}
                   onChangeText={setClubName}
                   autoFocus
@@ -74,15 +68,15 @@ export default function CreateClubScreen() {
               title={loading ? "Creating..." : "Create Club"} 
               onPress={handleCreate} 
               disabled={loading}
-              style={{marginTop: 24, backgroundColor: THEME.accent}}
+              style={{marginTop: 24, backgroundColor: theme.colors.primary}}
             />
             
             <Button 
                 title="Cancel"
                 variant="outline"
                 onPress={() => navigation.goBack()}
-                style={{marginTop: 12, borderColor: '#4A5568'}}
-                textStyle={{color: '#A0AEC0'}}
+                style={{marginTop: 12, borderColor: theme.colors.surfaceHighlight}}
+                textStyle={{color: theme.colors.textSecondary}}
             />
         </View>
       </SafeAreaView>
@@ -90,10 +84,10 @@ export default function CreateClubScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: THEME.bg,
+    backgroundColor: theme.colors.background,
     padding: 24,
   },
   header: {
@@ -103,38 +97,43 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: 'white',
+    color: theme.colors.textPrimary,
     marginBottom: 8,
   },
   subtitle: {
       fontSize: 16,
-      color: '#A0AEC0'
+      color: theme.colors.textSecondary,
   },
   form: {
-      backgroundColor: THEME.surface,
+      backgroundColor: theme.colors.surface,
       padding: 24,
       borderRadius: 16,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 10,
+      elevation: 4,
   },
   label: {
     fontSize: 12,
     fontWeight: 'bold',
     marginBottom: 12,
-    color: '#CBD5E0',
+    color: theme.colors.textSecondary,
     letterSpacing: 1,
   },
   inputContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: THEME.inputBg,
+      backgroundColor: theme.colors.surfaceHighlight, // inputBg replacement
       borderRadius: 8,
       paddingHorizontal: 12,
       borderWidth: 1,
-      borderColor: '#4A5568'
+      borderColor: theme.colors.surfaceHighlight
   },
   input: {
     flex: 1,
     height: 50,
-    color: 'white',
+    color: theme.colors.textPrimary,
     fontSize: 16,
   },
 });
