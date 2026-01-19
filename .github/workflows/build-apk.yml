@@ -20,6 +20,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -35,5 +41,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Android APK
-        run: eas build --platform android --profile apk --non-interactive --no-wait
+      - name: Build Android APK (Local)
+        run: eas build --platform android --profile apk --local --non-interactive --output=./smashtracker.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: smashtracker-apk
+          path: smashtracker.apk
