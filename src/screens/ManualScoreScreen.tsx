@@ -24,8 +24,9 @@ export default function ManualScoreScreen() {
 
   // Helper to resolve name
   const getName = (id: string) => {
+      // Search in allUsers (history) first, then members
       const u = allUsers?.find(u => u.id === id) || members.find(m => m.id === id);
-      return u ? u.displayName : 'Unknown Player';
+      return u ? u.displayName : 'Player';
   };
 
   // Use existing match data if editing, else use params
