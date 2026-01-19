@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Share, Alert, TouchableOpacity, Modal, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Share, Alert, TouchableOpacity, Modal, ScrollView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useClub } from '../context/ClubContext';
 import { useAuth } from '../context/AuthContext'; 
@@ -45,6 +45,16 @@ export default function ClubManagementScreen() {
 
   const handleDeleteClub = () => {
       if (!isOwner || !activeClub) return;
+
+      if (Platform.OS === 'web') {
+        if (window.confirm("Are you sure you want to permanently delete this club? ALL MATCH HISTORY WILL BE LOST. This action cannot be undone.")) {
+             deleteClub(activeClub.id)
+                .then(() => navigation.goBack())
+                .catch((e) => alert("Failed to delete club: " + e.message));
+        }
+        return;
+      }
+
       Alert.alert(
           "Delete Club",
           "Are you sure you want to permanently delete this club? ALL MATCH HISTORY WILL BE LOST. This action cannot be undone.",

@@ -25,8 +25,31 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const handleDelete = () => {
+    Alert.alert(
+      "Delete Account", 
+      "Are you sure? This will remove your login access but keep your match history as 'Deleted Player'.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive", 
+          onPress: async () => {
+             try {
+                await deleteAccount();
+             } catch (e) {
+               console.error(e);
+               Alert.alert("Error", "Failed to delete account. You may need to re-login first.");
+             }
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <ScrollView>
       <View style={styles.container}>
         <View style={styles.formGroup}>
           <Text style={styles.label}>Display Name (First & Last)</Text>
@@ -121,23 +144,4 @@ const styles = StyleSheet.create({
       color: '#718096',
       lineHeight: 20
   }
-});
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: '#2D3748',
-  },
-  disabledInput: {
-    backgroundColor: '#EDF2F7',
-    color: '#A0AEC0',
-  },
-  helper: {
-    fontSize: 12,
-    color: '#718096',
-    marginTop: 4,
-  },
-  saveBtn: {
-    marginTop: 24,
-  },
 });
