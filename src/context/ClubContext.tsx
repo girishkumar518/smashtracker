@@ -32,6 +32,7 @@ interface ClubContextType {
   approveRequest: (userId: string) => Promise<void>;
   rejectRequest: (userId: string) => Promise<void>;
   removeMember: (userId: string) => Promise<void>;
+  pendingClubs: Club[];
 }
 
 const ClubContext = createContext<ClubContextType | undefined>(undefined);
@@ -43,6 +44,7 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
   const [joinRequests, setJoinRequests] = useState<User[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [userClubs, setUserClubs] = useState<Club[]>([]);
+  const [pendingClubs, setPendingClubs] = useState<Club[]>([]);
 
   // 1. Fetch Clubs the user belongs to
   useEffect(() => {
@@ -51,6 +53,7 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
        setMembers([]);
        setMatches([]);
        setUserClubs([]);
+       setPendingClubs([]);
        return;
     }
 
@@ -72,8 +75,14 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
         const myClubs = allClubs.filter(c => 
             c.members && c.members.some(m => m.userId === user.id)
         );
+
+        // Filter for Pending Clubs
+        const myPending = allClubs.filter(c => 
+            c.joinRequests && c.joinRequests.includes(user.id)
+        );
         
         setUserClubs(myClubs);
+        setPendingClubs(myPending);
     });
     
     return () => unsubscribe();
@@ -346,7 +355,8 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
         seededMembers,
         approveRequest,
         rejectRequest,
-        removeMember
+        removeMember,
+        pendingClubs
     }}>
       {children}
     </ClubContext.Provider>

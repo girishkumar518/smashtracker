@@ -19,13 +19,13 @@ export default function JoinClubScreen() {
 
     setLoading(true);
     try {
-      const success = await joinClub(code);
-      if (success) {
-        Alert.alert('Success', 'You have joined the club!', [
+      const result = await joinClub(code);
+      if (result.success) {
+        Alert.alert('Status', result.message, [
           { text: 'Go to Dashboard', onPress: () => navigation.replace('Home') }
         ]);
       } else {
-        Alert.alert('Error', 'Invalid invite code. Please check and try again.');
+        Alert.alert('Error', result.message || 'Invalid invite code. Please check and try again.');
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to join club. Please try again.');

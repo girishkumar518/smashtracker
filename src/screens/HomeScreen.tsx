@@ -8,7 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 
 export default function HomeScreen() {
   const { user, signOut } = useAuth();
-  const { activeClub, matches, members } = useClub();
+  const { activeClub, matches, members, pendingClubs } = useClub();
   const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -106,6 +106,22 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        {pendingClubs && pendingClubs.length > 0 && (
+          <View style={{ marginBottom: 24 }}>
+            <Card style={{ backgroundColor: '#FFFBEB', borderColor: '#F6E05E', borderWidth: 1 }}>
+              <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#B7791F', marginBottom: 8 }}>
+                 Requests Pending
+              </Text>
+              {pendingClubs.map(club => (
+                <View key={club.id} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                   <Text style={{ color: '#744210' }}>{club.name}</Text>
+                   <Text style={{ color: '#744210', fontStyle: 'italic' }}>Waiting for approval</Text>
+                </View>
+              ))}
+            </Card>
+          </View>
+        )}
+
         {!activeClub ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No Club Found</Text>
