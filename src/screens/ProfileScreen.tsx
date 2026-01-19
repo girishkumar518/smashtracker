@@ -49,50 +49,52 @@ export default function ProfileScreen() {
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <ScrollView>
-      <View style={styles.container}>
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Display Name (First & Last)</Text>
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="e.g. John Doe"
-            autoCapitalize="words"
-          />
-        </View>
+      <View style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+          <View style={styles.container}>
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Display Name (First & Last)</Text>
+              <TextInput
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
+                placeholder="e.g. John Doe"
+                autoCapitalize="words"
+              />
+            </View>
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Email Address</Text>
-          <TextInput
-            style={[styles.input, styles.disabledInput]}
-            value={user?.email}
-            editable={false}
-          />
-          <Text style={styles.helper}>Email cannot be changed.</Text>
-        </View>
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Email Address</Text>
+              <TextInput
+                style={[styles.input, styles.disabledInput]}
+                value={user?.email}
+                editable={false}
+              />
+              <Text style={styles.helper}>Email cannot be changed.</Text>
+            </View>
 
-        <Button 
-          title="Save Changes" 
-          onPress={handleUpdate} 
-          loading={loading}
-          style={styles.saveBtn}
-        />
-
-        <View style={{ marginTop: 60, borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 30 }}>
-            <Text style={styles.dangerTitle}>Danger Zone</Text>
-            <Text style={styles.dangerText}>
-               Once you delete your account, there is no going back. Please be certain.
-            </Text>
             <Button 
-              title="Delete Account" 
-              onPress={handleDelete} 
-              style={{ backgroundColor: 'white', borderWidth: 1, borderColor: '#E53E3E', marginTop: 12 }}
-              textStyle={{ color: '#E53E3E' }}
+              title="Save Changes" 
+              onPress={handleUpdate} 
+              loading={loading}
+              style={styles.saveBtn}
             />
-        </View>
+
+            <View style={styles.dangerZone}>
+                <Text style={styles.dangerTitle}>Danger Zone</Text>
+                <Text style={styles.dangerText}>
+                   Once you delete your account, there is no going back. Please be certain.
+                </Text>
+                <Button 
+                  title="Delete Account" 
+                  onPress={handleDelete} 
+                  style={styles.deleteBtn}
+                  textStyle={styles.deleteBtnText}
+                />
+            </View>
+          </View>
+        </ScrollView>
       </View>
-      </ScrollView>
     </TouchableWithoutFeedback>
   );
 }
@@ -143,5 +145,20 @@ const styles = StyleSheet.create({
       fontSize: 14,
       color: '#718096',
       lineHeight: 20
+  },
+  dangerZone: {
+    marginTop: 60, 
+    borderTopWidth: 1, 
+    borderTopColor: '#E2E8F0', 
+    paddingTop: 30
+  },
+  deleteBtn: {
+    backgroundColor: 'white', 
+    borderWidth: 1, 
+    borderColor: '#E53E3E', 
+    marginTop: 12
+  },
+  deleteBtnText: {
+    color: '#E53E3E' 
   }
 });
