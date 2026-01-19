@@ -84,13 +84,33 @@ export default function ManualScoreScreen() {
       { t1: parseInt(s3t1), t2: parseInt(s3t2) },
     ];
 
-    rawSets.forEach(set => {
+    let hasError = false;
+
+    rawSets.forEach((set, index) => {
       if (!isNaN(set.t1) && !isNaN(set.t2)) {
+        // Validation: At least one score >= 21
+        if (set.t1 < 21 && set.t2 < 21) {
+             Alert.alert('Invalid Score', `In Set ${index + 1}, at least one team must reach 21 points.`);
+             hasError = true;
+             return;
+        }
+
         recordedSets.push({ team1Score: set.t1, team2Score: set.t2 });
         if (set.t1 > set.t2) wins1++;
         else if (set.t2 > set.t1) wins2++;
+        else {
+             Alert.alert('Invalid Score', `Set ${index + 1} cannot be a draw.`);
+             hasError = true;
+        }
       }
     });
+
+    if (hasError) return;
+
+    if (recordedSets.length === 0) {
+        Alert.alert('Error', 'No valid sets recorded.');
+        return;
+    }
 
     const winnerTeam = wins1 > wins2 ? 1 : 2; 
 

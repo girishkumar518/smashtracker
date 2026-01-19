@@ -9,7 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 
 export default function HomeScreen() {
   const { user, signOut } = useAuth();
-  const { activeClub, matches, members, pendingClubs, allUsers } = useClub();
+  const { activeClub, matches, members, pendingClubs, allUsers, userClubs, setActiveClub } = useClub();
   const { theme, toggleTheme, isDark } = useTheme();
   const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
@@ -138,6 +138,46 @@ export default function HomeScreen() {
         }
       >
         <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+          
+          {/* Club Switcher / List */}
+          <View style={{ marginBottom: 16 }}>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems:'center', marginBottom: 8}}>
+                <Text style={styles.sectionTitle}>My Clubs</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('CreateClub')}>
+                    <Text style={{color: theme.colors.primary, fontWeight:'bold', fontSize: 12}}>+ Create New</Text>
+                </TouchableOpacity>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 12}}>
+                {userClubs.map(club => (
+                    <TouchableOpacity 
+                        key={club.id} 
+                        style={[
+                            styles.clubPill, 
+                            activeClub?.id === club.id && styles.activeClubPill
+                        ]}
+                        onPress={() => setActiveClub(club)}
+                    >
+                        <Text style={[
+                            styles.clubPillText,
+                            activeClub?.id === club.id && { color: 'white' }
+                        ]}>{club.name}</Text>
+                        {activeClub?.id === club.id && (
+                            <Ionicons name="checkmark-circle" size={16} color="white" style={{marginLeft: 6}} />
+                        )}
+                    </TouchableOpacity>
+                ))}
+                
+                {/* Always visible Join/Create shortcuts if listing */}
+                <TouchableOpacity 
+                    style={[styles.clubPill, {backgroundColor: theme.colors.surfaceHighlight, borderStyle: 'dashed', borderWidth: 1}]}
+                    onPress={() => navigation.navigate('JoinClub')}
+                >
+                    <Ionicons name="enter-outline" size={16} color={theme.colors.textPrimary} />
+                    <Text style={[styles.clubPillText, {marginLeft: 6}]}>Join</Text>
+                </TouchableOpacity>
+            </ScrollView>
+          </View>
+
           {pendingClubs && pendingClubs.length > 0 && (
             <View style={{ marginBottom: 24 }}>
               <View style={styles.alertCard}>
@@ -444,6 +484,29 @@ const createStyles = (theme: Theme) => StyleSheet.create({
       elevation: 6, marginBottom: 8
   },
   startBtnText: { color: 'white', fontWeight: '900', fontSize: 16, letterSpacing: 1 },
+
+  // Club List Styles
+  clubPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surface,
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: theme.colors.surfaceHighlight,
+      minWidth: 80,
+      justifyContent: 'center',
+  },
+  activeClubPill: {
+      backgroundColor: theme.colors.primary,
+      borderColor: theme.colors.primary,
+  },
+  clubPillText: {
+      color: theme.colors.textPrimary,
+      fontWeight: '600',
+      fontSize: 14,
+  },
 
   // Match History
   sectionHeader: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom: 12 },

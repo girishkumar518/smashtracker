@@ -163,6 +163,9 @@ export default function ClubManagementScreen() {
               <TouchableOpacity onPress={shareInviteCode}>
                 <Text style={styles.inviteCode}>{activeClub.inviteCode} <Text style={{fontSize: 14, color: '#3182CE'}}>(Share)</Text></Text>
               </TouchableOpacity>
+              <View style={{ marginTop: 16 }}>
+                 <Button title="Invite from Contacts" variant="outline" onPress={() => navigation.navigate('InviteMembers' as never)} />
+              </View>
           </Card>
 
           {/* --- JOIN REQUESTS (ADMIN ONLY) --- */}

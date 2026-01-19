@@ -35,6 +35,8 @@ interface ClubContextType {
   removeMember: (userId: string) => Promise<void>;
   deleteClub: (clubId: string) => Promise<void>;
   pendingClubs: Club[];
+  userClubs: Club[];
+  setActiveClub: (club: Club) => void;
 }
 
 const ClubContext = createContext<ClubContextType | undefined>(undefined);
@@ -72,12 +74,17 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
     
     const q = query(collection(db, 'clubs'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
+        console.log("ClubContext: Snapshot received", snapshot.size, "docs");
         const allClubs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club));
         
         // Filter client-side for MVP where user is in members.userId
-        const myClubs = allClubs.filter(c => 
-            c.members && c.members.some(m => m.userId === user.id)
-        );
+        const myClubs = allClubs.filter(c => {
+            const isMember = c.members && c.members.some(m => m.userId === user.id);
+            // console.log(`Club ${c.name} (${c.id}): isMember?`, isMember);
+            return isMember;
+        });
+
+        console.log("ClubContext: My Clubs found:", myClubs.length);
 
         // Filter for Pending Clubs
         const myPending = allClubs.filter(c => 
@@ -86,6 +93,8 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
         
         setUserClubs(myClubs);
         setPendingClubs(myPending);
+    }, (error) => {
+        console.error("ClubContext: Snapshot Error:", error);
     });
     
     return () => unsubscribe();
@@ -403,7 +412,9 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
         rejectRequest,
         removeMember,
         pendingClubs,
-        deleteClub
+        deleteClub,
+        userClubs,
+        setActiveClub
     }}>
       {children}
     </ClubContext.Provider>

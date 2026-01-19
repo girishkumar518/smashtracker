@@ -179,12 +179,14 @@ export default function LiveScoreScreen() {
     const newSets = [...sets, { t1: finalSetScore.team1Score, t2: finalSetScore.team2Score }];
     setSets(newSets);
     
+    // Reset for next set
     setScore1(0);
     setScore2(0);
     setT1RightPlayerIdx(0); 
     setT2RightPlayerIdx(0);
     setServingTeam(winner); 
     setServerIdx(0); 
+    setHistory([]); // Prevent undoing previous set
     
     const newWins1 = winner === 1 ? setWins1 + 1 : setWins1;
     const newWins2 = winner === 2 ? setWins2 + 1 : setWins2;
@@ -239,6 +241,25 @@ export default function LiveScoreScreen() {
     setServePoints2(prev.servePoints2);
 
     setHistory(history.slice(0, -1));
+  };
+
+  const resetSet = () => {
+    Alert.alert('Reset Set', 'Are you sure you want to reset the current set scores to 0-0?', [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+            text: 'Reset', 
+            style: 'destructive', 
+            onPress: () => {
+                setScore1(0);
+                setScore2(0);
+                setHistory([]);
+                setT1RightPlayerIdx(0);
+                setT2RightPlayerIdx(0);
+                // Keep serving team as is, or reset? Usually reset to initial server of the set? 
+                // Let's just reset scores and history.
+            } 
+        }
+    ]);
   };
 
   const renderPlayerBox = (team: 1 | 2, position: 'L' | 'R', isTop: boolean) => {
@@ -420,6 +441,11 @@ export default function LiveScoreScreen() {
         <TouchableOpacity style={styles.actionBtn} onPress={undo} disabled={history.length === 0}>
              <Ionicons name="arrow-undo-outline" size={24} color={history.length===0 ? theme.colors.textSecondary : theme.colors.textPrimary} />
              <Text style={[styles.actionBtnText, { color: history.length === 0 ? theme.colors.textSecondary : theme.colors.textPrimary }]}>Undo</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.actionBtn} onPress={resetSet}>
+             <Ionicons name="refresh-outline" size={24} color={theme.colors.textPrimary} />
+             <Text style={styles.actionBtnText}>Reset</Text>
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.actionBtn} onPress={() => Alert.alert('Stats', 'View detailed stats')}>

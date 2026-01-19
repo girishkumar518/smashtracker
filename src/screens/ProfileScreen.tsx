@@ -1,13 +1,16 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, Alert, TouchableWithoutFeedback, Keyboard, ScrollView, StatusBar, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Alert, TouchableWithoutFeedback, Keyboard, ScrollView, StatusBar, SafeAreaView, TouchableOpacity } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { useClub } from '../context/ClubContext';
 import Button from '../components/Button';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme/theme';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function ProfileScreen() {
   const { user, updateProfile, deleteAccount } = useAuth();
+  const { userClubs, activeClub, setActiveClub } = useClub();
   const [name, setName] = useState(user?.displayName || '');
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation();
@@ -28,6 +31,13 @@ export default function ProfileScreen() {
     Alert.alert('Success', 'Profile updated!', [
       { text: 'OK', onPress: () => navigation.goBack() }
     ]);
+  };
+
+  const handleSwitchClub = (club: any) => {
+      setActiveClub(club);
+      Alert.alert('Club Switched', `You are now viewing ${club.name}`, [
+          { text: 'Go to Home', onPress: () => navigation.navigate('Home' as never) }
+      ]);
   };
 
   const handleDelete = () => {
@@ -56,8 +66,52 @@ export default function ProfileScreen() {
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
         <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
-        <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
           <View style={styles.container}>
+            {/* Club Management Section */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>My Clubs</Text>
+                
+                {userClubs && userClubs.length > 0 ? (
+                    userClubs.map(club => (
+                        <TouchableOpacity 
+                            key={club.id} 
+                            style={[
+                                styles.clubItem, 
+                                activeClub?.id === club.id && styles.activeClubItem
+                            ]}
+                            onPress={() => handleSwitchClub(club)}
+                        >
+                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                                <View style={[styles.clubInitial, {backgroundColor: activeClub?.id === club.id ? theme.colors.primary : theme.colors.textSecondary}]}>
+                                    <Text style={{color: 'white', fontWeight: 'bold'}}>{club.name.substring(0,2).toUpperCase()}</Text>
+                                </View>
+                                <View style={{marginLeft: 10}}>
+                                    <Text style={[styles.clubName, {color: theme.colors.textPrimary}]}>{club.name}</Text>
+                                    {activeClub?.id === club.id && <Text style={{color: theme.colors.primary, fontSize: 10, fontWeight:'bold'}}>ACTIVE</Text>}
+                                </View>
+                            </View>
+                            {activeClub?.id === club.id && <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />}
+                        </TouchableOpacity>
+                    ))
+                ) : (
+                    <Text style={{color: theme.colors.textSecondary, marginBottom: 12}}>No clubs joined yet.</Text>
+                )}
+
+                <View style={{flexDirection: 'row', gap: 10, marginTop: 12}}>
+                    <TouchableOpacity style={styles.smallBtn} onPress={() => navigation.navigate('JoinClub' as never)}>
+                        <Ionicons name="enter-outline" size={16} color="white" />
+                        <Text style={styles.smallBtnText}>Join Club</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.smallBtn, {backgroundColor: theme.colors.secondary}]} onPress={() => navigation.navigate('CreateClub' as never)}>
+                        <Ionicons name="add-circle-outline" size={16} color="white" />
+                        <Text style={styles.smallBtnText}>Create Club</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            <View style={styles.divider} />
+
             <View style={styles.formGroup}>
               <Text style={styles.label}>Display Name (First & Last)</Text>
               <TextInput
@@ -109,6 +163,59 @@ export default function ProfileScreen() {
 const createStyles = (theme: Theme) => StyleSheet.create({
   container: {
     padding: 24,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.colors.textPrimary,
+      marginBottom: 12,
+  },
+  clubItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 12,
+      backgroundColor: theme.colors.surface,
+      borderRadius: 8,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderColor: theme.colors.surfaceHighlight,
+  },
+  activeClubItem: {
+      borderColor: theme.colors.primary,
+      backgroundColor: theme.colors.primary + '10',
+  },
+  clubInitial: {
+      width: 32, height: 32, borderRadius: 16,
+      justifyContent: 'center', alignItems: 'center',
+  },
+  clubName: {
+      fontWeight: '600',
+      fontSize: 14,
+  },
+  smallBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      backgroundColor: theme.colors.primary,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: 6,
+      alignItems: 'center',
+      justifyContent: 'center',
+  },
+  smallBtnText: {
+      color: 'white',
+      fontWeight: 'bold',
+      fontSize: 12,
+      marginLeft: 6,
+  },
+  divider: {
+      height: 1,
+      backgroundColor: theme.colors.surfaceHighlight,
+      marginVertical: 16,
   },
   formGroup: {
     marginBottom: 20,
