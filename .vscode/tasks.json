@@ -10,6 +10,18 @@
 				"$tsc-watch"
 			],
 			"group": "test"
+		},
+		{
+			"label": "Build Android Production (AAB)",
+			"type": "shell",
+			"command": "eas build --profile production --platform android",
+			"problemMatcher": []
+		},
+		{
+			"label": "Build Android APK (Testing)",
+			"type": "shell",
+			"command": "eas build --profile apk --platform android",
+			"problemMatcher": []
 		}
 	]
 }

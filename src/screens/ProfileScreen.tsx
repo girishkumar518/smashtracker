@@ -88,8 +88,8 @@ export default function ProfileScreen() {
                 <Button 
                   title="Delete Account" 
                   onPress={handleDelete} 
-                  style={styles.deleteBtn}
-                  textStyle={styles.deleteBtnText}
+                  variant="danger"
+                  style={{ marginTop: 12 }}
                 />
             </View>
           </View>
