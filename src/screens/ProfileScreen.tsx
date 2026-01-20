@@ -7,7 +7,7 @@ import { useNavigation, CommonActions } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { FirebaseRecaptchaVerifierModal, FirebaseRecaptchaBanner } from 'expo-firebase-recaptcha';
+import FirebaseRecaptcha from '../components/FirebaseRecaptcha';
 import app, { auth } from '../services/firebaseConfig';
 import { PhoneAuthProvider, signInWithCredential, RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 
@@ -262,10 +262,9 @@ export default function ProfileScreen() {
             </View>
 
             {Platform.OS !== 'web' ? (
-                <FirebaseRecaptchaVerifierModal
+                <FirebaseRecaptcha
                     ref={recaptchaVerifier}
                     firebaseConfig={app.options}
-                    // attemptInvisibleVerification={true} 
                 />
             ) : (
                 <View nativeID="recaptcha-container" />
