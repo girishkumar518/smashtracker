@@ -48,34 +48,28 @@ export default function ProfileScreen() {
 
     try {
         console.log("Starting verification for:", fullPhoneNumber);
+        
+        let appVerifier = recaptchaVerifier.current;
+
         if (Platform.OS === 'web') {
-            console.log("Web platform detected");
-            if (!recaptchaVerifier.current) {
-                console.log("Creating new RecaptchaVerifier");
-                recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            if (!appVerifier) {
+                appVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
                    'size': 'invisible',
                 });
+                recaptchaVerifier.current = appVerifier;
             }
-            // Use linkWithPhoneNumber to attach phone to current user instead of signing in
-            const confirmation = await linkWithPhoneNumber(auth.currentUser!, fullPhoneNumber, recaptchaVerifier.current);
-            webConfirmationResult.current = confirmation;
-            setVerificationId(confirmation.verificationId);
         } else {
-            console.log("Native platform detected");
-            // Check if verifier is ready
-            if (!recaptchaVerifier.current) {
-                throw new Error("Recaptcha Verifier is not initialized");
-            }
-            console.log("Verifier type:", recaptchaVerifier.current.type);
-
-            const phoneProvider = new PhoneAuthProvider(auth);
-            const verificationId = await phoneProvider.verifyPhoneNumber(
-                fullPhoneNumber,
-                recaptchaVerifier.current
-            );
-            console.log("Verification ID received:", verificationId);
-            setVerificationId(verificationId);
+             if (!appVerifier) throw new Error("Recaptcha Verifier not ready");
         }
+
+        // Use linkWithPhoneNumber for consistent behavior across platforms
+        console.log("Calling linkWithPhoneNumber...");
+        const confirmation = await linkWithPhoneNumber(auth.currentUser!, fullPhoneNumber, appVerifier);
+        console.log("Confirmation received", confirmation.verificationId);
+        
+        webConfirmationResult.current = confirmation;
+        setVerificationId(confirmation.verificationId);
+
         Alert.alert("OTP Sent", "Please enter the 6-digit code sent to your phone.");
     } catch (err: any) {
         console.error("Verification Error:", err);
@@ -86,21 +80,19 @@ export default function ProfileScreen() {
   const confirmCode = async () => {
       if (!verificationCode || !verificationId) return;
       try {
-          if (Platform.OS === 'web') {
-             if (webConfirmationResult.current) {
-                 await webConfirmationResult.current.confirm(verificationCode);
-             } else {
-                 throw new Error("No verification session found.");
-             }
+          // Use the confirmation result from linkWithPhoneNumber
+          if (webConfirmationResult.current) {
+               await webConfirmationResult.current.confirm(verificationCode);
           } else {
-             const credential = PhoneAuthProvider.credential(
-               verificationId,
-               verificationCode
-             );
-             // Verify the code by updating the user's phone number
-             if (auth.currentUser) {
-                 await updatePhoneNumber(auth.currentUser, credential);
-             }
+               // Fallback: This path shouldn't typically be reached if we used linkWithPhoneNumber
+               // successfully, but handles cases where only verificationId was restored
+               const credential = PhoneAuthProvider.credential(
+                  verificationId,
+                  verificationCode
+               );
+               if (auth.currentUser) {
+                  await updatePhoneNumber(auth.currentUser, credential);
+               }
           }
           
           Alert.alert("Success", "Phone number verified!");
