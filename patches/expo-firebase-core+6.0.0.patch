@@ -1,0 +1,23 @@
+diff --git a/node_modules/expo-firebase-core/android/build.gradle b/node_modules/expo-firebase-core/android/build.gradle
+index 9bda09b..e987c57 100644
+--- a/node_modules/expo-firebase-core/android/build.gradle
++++ b/node_modules/expo-firebase-core/android/build.gradle
+@@ -37,7 +37,7 @@ buildscript {
+ 
+ // Creating sources with comments
+ task androidSourcesJar(type: Jar) {
+-  classifier = 'sources'
++  archiveClassifier = 'sources'
+   from android.sourceSets.main.java.srcDirs
+ }
+ 
+@@ -59,7 +59,8 @@ afterEvaluate {
+ }
+ 
+ android {
+-  compileSdkVersion safeExtGet("compileSdkVersion", 31)
++  namespace "expo.modules.firebase.core"
++  compileSdk safeExtGet("compileSdkVersion", 34)
+ 
+   compileOptions {
+     sourceCompatibility JavaVersion.VERSION_11
