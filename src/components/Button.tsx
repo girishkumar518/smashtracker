@@ -5,12 +5,13 @@ interface ButtonProps {
   onPress: () => void;
   title: string;
   variant?: 'primary' | 'secondary' | 'outline' | 'danger';
+  size?: 'small' | 'medium' | 'large';
   style?: ViewStyle;
   loading?: boolean;
   disabled?: boolean;
 }
 
-export default function Button({ onPress, title, variant = 'primary', style, loading = false, disabled = false }: ButtonProps) {
+export default function Button({ onPress, title, variant = 'primary', size = 'medium', style, loading = false, disabled = false }: ButtonProps) {
   const getBackgroundColor = () => {
     if (disabled) return '#CBD5E0';
     switch (variant) {
@@ -32,12 +33,29 @@ export default function Button({ onPress, title, variant = 'primary', style, loa
     return {};
   };
 
+  const getSizeStyles = () => {
+    switch (size) {
+      case 'small': return { paddingVertical: 8, paddingHorizontal: 12 };
+      case 'large': return { paddingVertical: 16, paddingHorizontal: 32 };
+      default: return { paddingVertical: 12, paddingHorizontal: 24 };
+    }
+  };
+
+  const getTextSize = () => {
+     switch (size) {
+       case 'small': return 14;
+       case 'large': return 18;
+       default: return 16;
+     }
+  };
+
   return (
     <TouchableOpacity
       style={[
         styles.button,
         { backgroundColor: getBackgroundColor() },
         getBorder(),
+        getSizeStyles(),
         style,
       ]}
       onPress={onPress}
@@ -46,7 +64,7 @@ export default function Button({ onPress, title, variant = 'primary', style, loa
       {loading ? (
         <ActivityIndicator color={getTextColor()} />
       ) : (
-        <Text style={[styles.text, { color: getTextColor() }]}>{title}</Text>
+        <Text style={[styles.text, { color: getTextColor(), fontSize: getTextSize() }]}>{title}</Text>
       )}
     </TouchableOpacity>
   );
@@ -54,8 +72,6 @@ export default function Button({ onPress, title, variant = 'primary', style, loa
 
 const styles = StyleSheet.create({
   button: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -63,6 +79,5 @@ const styles = StyleSheet.create({
   },
   text: {
     fontWeight: '600',
-    fontSize: 16,
   },
 });

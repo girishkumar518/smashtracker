@@ -26,6 +26,7 @@ const FirebaseRecaptcha = forwardRef<FirebaseAuthApplicationVerifier, FirebaseRe
   const rejecter = useRef<((error: Error) => void) | null>(null);
 
   useImperativeHandle(ref, () => ({
+    type: 'recaptcha',
     verify: () => {
       return new Promise<string>((resolve, reject) => {
         resolver.current = resolve;

@@ -8,14 +8,21 @@ import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme/theme';
 import { Ionicons } from '@expo/vector-icons';
 import FirebaseRecaptcha from '../components/FirebaseRecaptcha';
+import CountryCodePicker from '../components/CountryCodePicker';
+import { parsePhoneNumber } from '../constants/CountryCodes';
 import app, { auth } from '../services/firebaseConfig';
 import { PhoneAuthProvider, signInWithCredential, RecaptchaVerifier, signInWithPhoneNumber, updatePhoneNumber, linkWithPhoneNumber } from 'firebase/auth';
 
 export default function ProfileScreen() {
   const { user, updateProfile, deleteAccount, isActive } = useAuth();
   const { userClubs, activeClub, setActiveClub, invitedClubs, acceptClubInvite } = useClub();
+  
+  // Initialize phone state
+  const initialPhoneData = parsePhoneNumber(user?.phoneNumber);
   const [name, setName] = useState(user?.displayName || '');
-  const [phone, setPhone] = useState(user?.phoneNumber || '');
+  const [countryCode, setCountryCode] = useState(initialPhoneData.code);
+  const [phone, setPhone] = useState(initialPhoneData.number);
+  
   const [verificationId, setVerificationId] = useState<string | null>(null);
   const [verificationCode, setVerificationCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,33 +34,51 @@ export default function ProfileScreen() {
 
   const styles = useMemo(() => createStyles(theme), [theme]);
 
+  const fullPhoneNumber = `${countryCode}${phone}`;
+  const isPhoneChanged = !user?.phoneNumber || user.phoneNumber !== fullPhoneNumber;
+
   const sendVerification = async () => {
-    if (!phone || phone.length < 10) {
-        Alert.alert("Invalid Phone", "Please enter a valid phone number with country code (e.g. +15555555555)");
+    if (!phone || phone.length < 5) {
+        Alert.alert("Invalid Phone", "Please enter a valid phone number.");
         return;
     }
+    
+    // Check if phone matches current user (to avoid re-verifying own number)
+    if (!isPhoneChanged) return;
+
     try {
+        console.log("Starting verification for:", fullPhoneNumber);
         if (Platform.OS === 'web') {
+            console.log("Web platform detected");
             if (!recaptchaVerifier.current) {
+                console.log("Creating new RecaptchaVerifier");
                 recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
                    'size': 'invisible',
                 });
             }
             // Use linkWithPhoneNumber to attach phone to current user instead of signing in
-            const confirmation = await linkWithPhoneNumber(auth.currentUser!, phone, recaptchaVerifier.current);
+            const confirmation = await linkWithPhoneNumber(auth.currentUser!, fullPhoneNumber, recaptchaVerifier.current);
             webConfirmationResult.current = confirmation;
             setVerificationId(confirmation.verificationId);
         } else {
+            console.log("Native platform detected");
+            // Check if verifier is ready
+            if (!recaptchaVerifier.current) {
+                throw new Error("Recaptcha Verifier is not initialized");
+            }
+            console.log("Verifier type:", recaptchaVerifier.current.type);
+
             const phoneProvider = new PhoneAuthProvider(auth);
             const verificationId = await phoneProvider.verifyPhoneNumber(
-                phone,
+                fullPhoneNumber,
                 recaptchaVerifier.current
             );
+            console.log("Verification ID received:", verificationId);
             setVerificationId(verificationId);
         }
         Alert.alert("OTP Sent", "Please enter the 6-digit code sent to your phone.");
     } catch (err: any) {
-        console.error(err);
+        console.error("Verification Error:", err);
         Alert.alert("Error", `Failed to send OTP: ${err.message}`);
     }
   };
@@ -81,7 +106,7 @@ export default function ProfileScreen() {
           Alert.alert("Success", "Phone number verified!");
           setVerificationId(null);
           // Auto-save
-          await updateProfile({ displayName: name, phoneNumber: phone });
+          await updateProfile({ displayName: name, phoneNumber: fullPhoneNumber });
           
       } catch (err: any) {
           Alert.alert("Invalid Code", err.message);
@@ -95,7 +120,7 @@ export default function ProfileScreen() {
     }
 
     setLoading(true);
-    await updateProfile({ displayName: name, phoneNumber: phone });
+    await updateProfile({ displayName: name, phoneNumber: fullPhoneNumber });
     setLoading(false);
     
     Alert.alert('Success', 'Profile updated!', [
@@ -226,25 +251,29 @@ export default function ProfileScreen() {
 
             <View style={styles.formGroup}>
               <Text style={styles.label}>Phone Number</Text>
-              <View style={{flexDirection: 'row', gap: 10}}>
+              <View style={{flexDirection: 'row', gap: 10, alignItems: 'center'}}>
+                  <CountryCodePicker 
+                     selectedCode={countryCode} 
+                     onSelect={setCountryCode}
+                     disabled={!!verificationId}
+                  />
                   <TextInput
                     style={[styles.input, {flex: 1}]}
                     value={phone}
                     onChangeText={setPhone}
-                    placeholder="+1234567890"
+                    placeholder="1234567890"
                     placeholderTextColor={theme.colors.textSecondary}
                     keyboardType="phone-pad"
-                    editable={!verificationId && (!user?.phoneNumber || user.phoneNumber !== phone)}
+                    editable={!verificationId}
                   />
-                  {(!user?.phoneNumber || user.phoneNumber !== phone) && (
+                  {isPhoneChanged && (
                      <Button 
                         title={verificationId ? "Re-send" : "Verify"} 
                         size="small" 
                         onPress={sendVerification} 
-                        style={{width: 80}}
                      />
                   )}
-                  {user?.phoneNumber && user.phoneNumber === phone && (
+                  {!isPhoneChanged && user?.phoneNumber && (
                       <View style={{justifyContent: 'center', paddingHorizontal: 10}}>
                           <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary} />
                       </View>
