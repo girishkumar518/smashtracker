@@ -73,7 +73,14 @@ export default function ProfileScreen() {
         Alert.alert("OTP Sent", "Please enter the 6-digit code sent to your phone.");
     } catch (err: any) {
         console.error("Verification Error:", err);
-        Alert.alert("Error", `Failed to send OTP: ${err.message}`);
+        if (err.code === 'auth/billing-not-enabled') {
+            Alert.alert(
+                "Billing Required", 
+                "SMS delivery requires Firebase Billing to be enabled. \n\nFor development, please add 'Phone numbers for testing' in the Firebase Console to bypass this."
+            );
+        } else {
+            Alert.alert("Error", `Failed to send OTP: ${err.message}`);
+        }
     }
   };
 
