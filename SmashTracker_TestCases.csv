@@ -1,0 +1,22 @@
+ID,Category,Test Case,Pre-conditions,Steps,Expected Result
+AUTH-01,Authentication,Google Sign-In,"App installed, internet active",1. Open App. 2. Tap ""Sign in with Google"". 3. Select Google Account.,"User is logged in and redirected to Home Screen."
+AUTH-02,Authentication,Phone Sign-In (Mobile),Real Android/iOS device,1. Open App. 2. Tap ""Phone Sign-In"". 3. Enter valid phone number. 4. Complete reCAPTCHA (if visible). 5. Enter SMS OTP.,"User is logged in and redirected to Home Screen."
+AUTH-03,Authentication,Phone Sign-In (Web),Web Browser (npx expo start --web),1. Open Web App. 2. Tap ""Phone Sign-In"". 3. Enter valid phone number. 4. Solve reCAPTCHA in WebView popup. 5. Enter SMS OTP.,"User is logged in and redirected to Home Screen."
+AUTH-04,Authentication,Sign Out,User logged in,1. Go to Profile. 2. Perform Sign Out.,"User is returned to Login Screen."
+PROF-01,Profile & Settings,Update Display Name,User logged in,1. Go to Profile. 2. Edit ""Display Name"" field. 3. Tap ""Save Changes"".0,"Alert shows ""Success"". New name persists on app restart."
+PROF-02,Profile & Settings,Verify Phone Number,"User logged in, no phone verified",1. Go to Profile. 2. Enter phone number. 3. Tap ""Verify"". 4. Complete reCAPTCHA and enter OTP.,"Alert shows ""Success"". Green checkmark appears next to phone number."
+PROF-03,Profile & Settings,Club Invite Acceptance,"User B invited by User A",1. Login as User B. 2. Go to Profile. 3. Locate ""Club Invites"" section. 4. Tap ""Accept"" on an invite.,"Club appears in ""My Clubs"" list. App switches context to new club."
+PROF-04,Profile & Settings,Delete Account,User logged in,1. Go to Profile > Danger Zone. 2. Tap ""Delete Account"". 3. Confirm dialog.,"Account is deleted/deactivated. User redirected to Login Screen."
+CLUB-01,Club Management,Create New Club,User logged in,1. Go to Profile or Home. 2. Tap ""Create Club"". 3. Enter Club Name. 4. Submit.,"Club is created. User is set as Admin. Active club switches to new club."
+CLUB-02,Club Management,Switch Active Club,User is member of 2+ clubs,1. Go to Profile. 2. Tap a different club in ""My Clubs"".0,"""Active"" badge moves to selected club. Home screen data refreshes to show matches for that club."
+CLUB-03,Club Management,Invite Member (Phone),User is Club Admin,1. Go to Club Management / Invite Screen. 2. Enter a phone number. 3. Tap ""Invite"".0,Invitation is sent (backend updates clubInvites for target user).
+CLUB-04,Club Management,Join via Code,Valid Club Code exists,1. Go to Profile -> ""Join Club"". 2. Enter valid 6-char code. 3. Submit.,"User is added to club as ""Player"". Club appears in Profile list."
+MTCH-01,Match Operations,Create Singles Match,Active Club has >1 member,1. Tap ""+"" (New Match). 2. Select ""Singles"". 3. Select Player A and Player B. 4. Tap ""Start Match"".0,"User is navigated to Score Screen initialized with 0-0."
+MTCH-02,Match Operations,Create Doubles Match,Active Club has >3 members,1. Tap ""+"". 2. Select ""Doubles"". 3. Select Team 1 (2 players) and Team 2 (2 players). 4. Tap ""Start Match"".0,User is navigated to Score Screen.
+MTCH-03,Match Operations,Live Scoring,Match started,1. Tap Team 1 area to add point (0 -> 1). 2. Tap Team 2 area to add point. 3. Long press / swipe to undo.,"Score updates in real-time. Undo reverts score correctly."
+MTCH-04,Match Operations,Set Completion,Match in progress,1. Increase score to winning condition (e.g. 21 points).,"Set finishes. Current set counter increments. Scores reset for next set."
+MTCH-05,Match Operations,Finish Match,Match in progress,1. Complete required sets. 2. Tap ""Finish Match"".0,"Match data saved to Firestore. User redirected to Home Screen. New match appears at top of list."
+MTCH-06,Match Operations,Manual Score Entry,Active Club,1. Tap ""+"". 2. Toggle ""Manual Entry"". 3. Select Players. 4. Input final scores (e.g. 21-19, 21-15). 5. Save.,"Match is saved to History instantly."
+DATA-01,Data & Performance,History Loading,Club has 20+ matches,1. Go to Home Screen. 2. Scroll down to bottom.,"Old matches load automatically (Infinite Scroll). No ""Index Missing"" errors."
+DATA-02,Data & Performance,Offline Grace,User logged in,1. Turn off WiFi/Data. 2. Open App.,"App should not crash. Should show cached data or a ""No Connection"" message."
+DATA-03,Data & Performance,Stats Calculation,Matches completed,1. Go to Stats/Leaderboard,Verify Win/Loss ratios and points reflect matches played.

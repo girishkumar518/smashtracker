@@ -9,7 +9,7 @@ import { Theme } from '../theme/theme';
 import { Ionicons } from '@expo/vector-icons';
 import FirebaseRecaptcha from '../components/FirebaseRecaptcha';
 import app, { auth } from '../services/firebaseConfig';
-import { PhoneAuthProvider, signInWithCredential, RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import { PhoneAuthProvider, signInWithCredential, RecaptchaVerifier, signInWithPhoneNumber, updatePhoneNumber, linkWithPhoneNumber } from 'firebase/auth';
 
 export default function ProfileScreen() {
   const { user, updateProfile, deleteAccount, isActive } = useAuth();
@@ -39,7 +39,8 @@ export default function ProfileScreen() {
                    'size': 'invisible',
                 });
             }
-            const confirmation = await signInWithPhoneNumber(auth, phone, recaptchaVerifier.current);
+            // Use linkWithPhoneNumber to attach phone to current user instead of signing in
+            const confirmation = await linkWithPhoneNumber(auth.currentUser!, phone, recaptchaVerifier.current);
             webConfirmationResult.current = confirmation;
             setVerificationId(confirmation.verificationId);
         } else {
@@ -71,6 +72,10 @@ export default function ProfileScreen() {
                verificationId,
                verificationCode
              );
+             // Verify the code by updating the user's phone number
+             if (auth.currentUser) {
+                 await updatePhoneNumber(auth.currentUser, credential);
+             }
           }
           
           Alert.alert("Success", "Phone number verified!");
