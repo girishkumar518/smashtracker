@@ -23,6 +23,7 @@ export interface Club {
   inviteCode: string;
   members: ClubMember[]; // In a real DB, this might be a sub-collection
   joinRequests?: string[]; // Array of User IDs requesting to join
+  guestPlayers?: { id: string; name: string; addedAt: number }[]; // Explicitly added guests
 }
 
 export interface MatchSet {

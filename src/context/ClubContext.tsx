@@ -45,6 +45,7 @@ interface ClubContextType {
   userClubs: Club[];
   setActiveClub: (club: Club) => void;
   updateGuestToUser: (guestId: string, realUserId: string) => Promise<void>;
+  addGuestPlayer: (name: string) => Promise<void>;
   guests: User[];
 }
 
@@ -191,7 +192,8 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
               console.error("Error fetching members:", e);
           }
           
-          // EXTRACT GUESTS
+          // EXTRACT GUESTS 
+          // 1. From Matches (Legacy / On-the-fly)
           const guestMap = new Map<string, string>();
           matches.forEach(m => {
               if (m.guestNames) {
@@ -200,6 +202,13 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
                   });
               }
           });
+          
+          // 2. From Club Document (Explicitly Added)
+          if (activeClub.guestPlayers) {
+              activeClub.guestPlayers.forEach(g => {
+                  guestMap.set(g.id, g.name);
+              });
+          }
           
           const guestList: User[] = Array.from(guestMap.entries()).map(([id, name]) => ({
              id,
@@ -212,7 +221,7 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
       fetchMembers();
 
       return () => unsubMatches();
-  }, [activeClub?.id, activeClub?.members, activeClub?.joinRequests, matches?.length]); // Added matches.length dependency
+  }, [activeClub, matches?.length]); // removed specific activeClub fields, just depend on activeClub since we need guestPlayers
 
 
   const seededMembers: SeededUser[] = useMemo(() => {
@@ -571,6 +580,24 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
       }
   };
 
+  const addGuestPlayer = async (name: string) => {
+      if (!activeClub) return;
+      const newGuest = {
+          id: `guest_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          name: name,
+          addedAt: Date.now()
+      };
+
+      try {
+          await updateDoc(doc(db, 'clubs', activeClub.id), {
+              guestPlayers: arrayUnion(newGuest)
+          });
+      } catch (e) {
+          console.error("Error adding guest player:", e);
+          throw e;
+      }
+  };
+
   return (
     <ClubContext.Provider value={{ 
         activeClub, 
@@ -595,6 +622,7 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
         userClubs,
         setActiveClub,
         updateGuestToUser,
+        addGuestPlayer,
         guests
     }}>
       {children}

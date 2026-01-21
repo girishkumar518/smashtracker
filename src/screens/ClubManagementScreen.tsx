@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, Share, Alert, TouchableOpacity, ScrollView, Platform, StatusBar, Modal } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Share, Alert, TouchableOpacity, ScrollView, Platform, StatusBar, Modal, TextInput } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useClub } from '../context/ClubContext';
 import { useAuth } from '../context/AuthContext'; 
@@ -19,7 +19,8 @@ export default function ClubManagementScreen() {
     deleteClub,
     leaveClub,
     guests,
-    updateGuestToUser
+    updateGuestToUser,
+    addGuestPlayer
   } = useClub();
   const { user } = useAuth();
   const navigation = useNavigation();
@@ -29,6 +30,10 @@ export default function ClubManagementScreen() {
   // Guest Merge State
   const [mergeModalVisible, setMergeModalVisible] = useState(false);
   const [selectedGuest, setSelectedGuest] = useState<any>(null);
+
+  // Add Guest State
+  const [addGuestModalVisible, setAddGuestModalVisible] = useState(false);
+  const [newGuestName, setNewGuestName] = useState('');
 
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -276,18 +281,31 @@ export default function ClubManagementScreen() {
           )}
 
           {/* --- GUESTS LIST (ADMIN ONLY) --- */}
-          {isAdmin && guests && guests.length > 0 && (
+          {isAdmin && (
              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Guest Players ({guests.length})</Text>
-                <Card style={{padding: 0, backgroundColor: theme.colors.surface}}>
-                    <FlatList
-                        data={guests}
-                        renderItem={renderGuest}
-                        keyExtractor={item => item.id}
-                        scrollEnabled={false}
-                        ItemSeparatorComponent={() => <View style={styles.separator} />}
+                <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
+                    <Text style={[styles.sectionTitle, {marginBottom: 0}]}>Guest Players ({guests.length})</Text>
+                    <Button 
+                        title="Add Guest" 
+                        size="small" 
+                        onPress={() => setAddGuestModalVisible(true)} 
+                        style={{paddingVertical: 4, height: 30}}
+                        textStyle={{fontSize: 12}}
                     />
-                </Card>
+                </View>
+                {guests.length > 0 ? (
+                    <Card style={{padding: 0, backgroundColor: theme.colors.surface}}>
+                        <FlatList
+                            data={guests}
+                            renderItem={renderGuest}
+                            keyExtractor={item => item.id}
+                            scrollEnabled={false}
+                            ItemSeparatorComponent={() => <View style={styles.separator} />}
+                        />
+                    </Card>
+                ): (
+                    <Text style={{color: theme.colors.textSecondary, fontStyle: 'italic', marginLeft: 8}}>No guest players found.</Text>
+                )}
              </View>
           )}
 
@@ -362,6 +380,52 @@ export default function ClubManagementScreen() {
             />
         </View>
       </Modal>
+
+      {/* Add Guest Modal */}
+      <Modal visible={addGuestModalVisible} transparent animationType="fade" onRequestClose={() => setAddGuestModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+            <View style={[styles.dialogContainer, { backgroundColor: theme.colors.surface }]}>
+                <Text style={styles.dialogTitle}>Add New Guest</Text>
+                <Text style={styles.dialogDescription}>Create a guest player to use in matches.</Text>
+                
+                <TextInput
+                    style={[styles.input, { color: theme.colors.textPrimary, borderColor: theme.colors.border }]}
+                    placeholder="Guest Name (e.g. John Doe)"
+                    placeholderTextColor={theme.colors.textSecondary}
+                    value={newGuestName}
+                    onChangeText={setNewGuestName}
+                    autoFocus
+                />
+
+                <View style={styles.dialogActions}>
+                    <Button 
+                        title="Cancel" 
+                        variant="outline" 
+                        onPress={() => {
+                            setAddGuestModalVisible(false);
+                            setNewGuestName('');
+                        }}
+                        style={{flex: 1, marginRight: 8}}
+                    />
+                    <Button 
+                        title="Add" 
+                        onPress={async () => {
+                            if(!newGuestName.trim()) return;
+                            try {
+                                await addGuestPlayer(newGuestName);
+                                setAddGuestModalVisible(false);
+                                setNewGuestName('');
+                            } catch(e) {
+                                Alert.alert("Error", "Failed to add guest.");
+                            }
+                        }}
+                        style={{flex: 1}}
+                    />
+                </View>
+            </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -489,5 +553,40 @@ const createStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     backgroundColor: theme.colors.surface,
+  },
+  modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'center',
+      padding: 20
+  },
+  dialogContainer: {
+      borderRadius: 12,
+      padding: 20,
+      width: '100%',
+      maxWidth: 400,
+      alignSelf: 'center',
+  },
+  dialogTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginBottom: 8,
+      color: theme.colors.textPrimary
+  },
+  dialogDescription: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      marginBottom: 16
+  },
+  input: {
+      borderWidth: 1,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      marginBottom: 20
+  },
+  dialogActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end'
   }
 });
