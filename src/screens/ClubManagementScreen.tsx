@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, Share, Alert, TouchableOpacity, ScrollView, Platform, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Share, Alert, TouchableOpacity, ScrollView, Platform, StatusBar, Modal } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useClub } from '../context/ClubContext';
 import { useAuth } from '../context/AuthContext'; 
@@ -17,12 +17,18 @@ export default function ClubManagementScreen() {
     rejectRequest, 
     removeMember,
     deleteClub,
-    leaveClub
+    leaveClub,
+    guests,
+    updateGuestToUser
   } = useClub();
   const { user } = useAuth();
   const navigation = useNavigation();
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const { theme, isDark } = useTheme();
+
+  // Guest Merge State
+  const [mergeModalVisible, setMergeModalVisible] = useState(false);
+  const [selectedGuest, setSelectedGuest] = useState<any>(null);
 
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -143,6 +149,55 @@ export default function ClubManagementScreen() {
       return null;
   };
 
+  const handleMerge = async (targetUser: any) => {
+      if (!selectedGuest) return;
+      
+      Alert.alert(
+          "Confirm Merge", 
+          `Merge all history of "${selectedGuest.displayName}" into "${targetUser.displayName}"?\n\nThis will update all past matches. This cannot be undone.`,
+          [
+              { text: "Cancel", style: "cancel" },
+              { 
+                  text: "Merge", 
+                  style: "destructive", 
+                  onPress: async () => {
+                      try {
+                          await updateGuestToUser(selectedGuest.id, targetUser.id);
+                          setMergeModalVisible(false);
+                          setSelectedGuest(null);
+                          Alert.alert("Success", "Guest history merged!");
+                      } catch (e: any) {
+                          Alert.alert("Error", "Failed to merge.");
+                      }
+                  }
+              }
+          ]
+      );
+  };
+
+  const renderGuest = ({ item }: { item: any }) => (
+    <View style={styles.memberRow}>
+       <View style={[styles.memberAvatar, { backgroundColor: '#ED8936' }]}>
+          <Text style={styles.avatarText}>{item.displayName ? item.displayName.charAt(0) : 'G'}</Text>
+       </View>
+       <View style={{ flex: 1 }}>
+         <Text style={styles.memberName}>{item.displayName}</Text>
+         <Text style={styles.memberEmail}>Guest Player</Text>
+       </View>
+       <Button 
+            title="Link to Member" 
+            size="small" 
+            variant="outline"
+            style={{height: 32, paddingVertical: 0}}
+            textStyle={{fontSize: 12}}
+            onPress={() => {
+                setSelectedGuest(item);
+                setMergeModalVisible(true);
+            }} 
+       />
+    </View>
+  );
+
   const renderMember = ({ item }: { item: any }) => {
     const roleBadge = getRoleLabel(item.id);
     return (
@@ -220,6 +275,22 @@ export default function ClubManagementScreen() {
               </View>
           )}
 
+          {/* --- GUESTS LIST (ADMIN ONLY) --- */}
+          {isAdmin && guests && guests.length > 0 && (
+             <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Guest Players ({guests.length})</Text>
+                <Card style={{padding: 0, backgroundColor: theme.colors.surface}}>
+                    <FlatList
+                        data={guests}
+                        renderItem={renderGuest}
+                        keyExtractor={item => item.id}
+                        scrollEnabled={false}
+                        ItemSeparatorComponent={() => <View style={styles.separator} />}
+                    />
+                </Card>
+             </View>
+          )}
+
           {/* --- MEMBERS LIST --- */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Members ({seededMembers.length})</Text>
@@ -260,6 +331,37 @@ export default function ClubManagementScreen() {
               </View>
           )}
       </ScrollView>
+
+      {/* Merge Modal */}
+      <Modal visible={mergeModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setMergeModalVisible(false)}>
+        <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+            <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Link "{selectedGuest?.displayName}" to...</Text>
+                <Button title="Close" variant="outline" onPress={() => setMergeModalVisible(false)} style={{ paddingVertical: 6, paddingHorizontal: 12 }} textStyle={{fontSize: 14}} />
+            </View>
+            <View style={{padding: 16, backgroundColor: theme.colors.surfaceHighlight || '#F7FAFC'}}>
+                <Text style={{color: theme.colors.textSecondary, fontSize: 13}}>
+                    Select a registered member to take ownership of this guest's match history. The guest name will be replaced by the member in all past matches.
+                </Text>
+            </View>
+            <FlatList
+                data={seededMembers}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                    <TouchableOpacity 
+                        style={styles.modalItem} 
+                        onPress={() => handleMerge(item)}
+                    >
+                        <View style={[styles.memberAvatar, {width: 40, height: 40, marginRight: 12}]}>
+                            <Text style={styles.avatarText}>{item.displayName.charAt(0)}</Text>
+                        </View>
+                        <Text style={styles.memberName}>{item.displayName}</Text>
+                    </TouchableOpacity>
+                )}
+                ItemSeparatorComponent={() => <View style={styles.separator} />}
+            />
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -368,5 +470,24 @@ const createStyles = (theme: Theme) => StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.textPrimary,
+  },
+  modalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: theme.colors.surface,
   }
 });

@@ -15,6 +15,7 @@ type LiveScoreParams = {
   matchType?: 1 | 3;
   pointsPerSet?: number;
   goldenPoint?: boolean;
+  guestNames?: Record<string, string>;
 };
 
 // Team Colors (Independent of App Theme for clarity)
@@ -30,7 +31,7 @@ export default function LiveScoreScreen() {
   
   const { 
     team1, team2, matchType = 3, isDoubles, 
-    pointsPerSet = 21, goldenPoint = false 
+    pointsPerSet = 21, goldenPoint = false, guestNames
   } = route.params as LiveScoreParams;
   const { recordMatch, activeClub } = useClub();
 
@@ -209,7 +210,8 @@ export default function LiveScoreScreen() {
         stats: {
             maxConsecutivePts: { team1: maxStreak1, team2: maxStreak2 },
             pointsWonOnServe: { team1: servePoints1, team2: servePoints2 }
-        }
+        },
+        guestNames
       };
       recordMatch(newMatch);
       (navigation as any).replace('MatchOverview', { match: newMatch });

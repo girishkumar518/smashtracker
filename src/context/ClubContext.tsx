@@ -16,7 +16,8 @@ import {
   documentId,
   arrayRemove,
   deleteDoc,
-  getDoc
+  getDoc,
+  or
 } from 'firebase/firestore';
 
 import { sendPushNotification } from '../services/notificationService';
@@ -43,6 +44,8 @@ interface ClubContextType {
   invitedClubs: Club[]; // New
   userClubs: Club[];
   setActiveClub: (club: Club) => void;
+  updateGuestToUser: (guestId: string, realUserId: string) => Promise<void>;
+  guests: User[];
 }
 
 const ClubContext = createContext<ClubContextType | undefined>(undefined);
@@ -57,6 +60,7 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
   const [userClubs, setUserClubs] = useState<Club[]>([]);
   const [pendingClubs, setPendingClubs] = useState<Club[]>([]);
   const [invitedClubs, setInvitedClubs] = useState<Club[]>([]); // New
+  const [guests, setGuests] = useState<User[]>([]);
 
   // 1. Fetch Clubs the user belongs to
   useEffect(() => {
@@ -186,6 +190,23 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
           } catch (e) {
               console.error("Error fetching members:", e);
           }
+          
+          // EXTRACT GUESTS
+          const guestMap = new Map<string, string>();
+          matches.forEach(m => {
+              if (m.guestNames) {
+                  Object.entries(m.guestNames).forEach(([id, name]) => {
+                      guestMap.set(id, name);
+                  });
+              }
+          });
+          
+          const guestList: User[] = Array.from(guestMap.entries()).map(([id, name]) => ({
+             id,
+             displayName: name,
+             email: '',
+          }));
+          setGuests(guestList);
       };
 
       fetchMembers();
@@ -501,6 +522,55 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const updateGuestToUser = async (guestId: string, realUserId: string) => {
+      if (!activeClub) return;
+      console.log(`Converting Guest ${guestId} to User ${realUserId}`);
+      
+      try {
+          // Find only matches where the guest played (optimization)
+          // Note: This query requires a Firestore Composite Index. 
+          // If it fails, check your console logs for a link to create the index.
+          const q = query(
+              collection(db, 'matches'), 
+              where('clubId', '==', activeClub.id),
+              or(
+                  where('team1', 'array-contains', guestId),
+                  where('team2', 'array-contains', guestId)
+              )
+          );
+          const snapshot = await getDocs(q);
+
+          const updates: Promise<void>[] = [];
+
+          snapshot.docs.forEach(docSnap => {
+              const data = docSnap.data() as Match;
+              let needsUpdate = false;
+              
+              // Helper to replace ID in array
+              const replaceId = (arr: string[]) => arr.map(id => id === guestId ? realUserId : id);
+
+              const newTeam1 = replaceId(data.team1);
+              const newTeam2 = replaceId(data.team2);
+
+              if (JSON.stringify(newTeam1) !== JSON.stringify(data.team1)) needsUpdate = true;
+              if (JSON.stringify(newTeam2) !== JSON.stringify(data.team2)) needsUpdate = true;
+              
+              if (needsUpdate) {
+                  updates.push(updateDoc(doc(db, 'matches', docSnap.id), {
+                      team1: newTeam1,
+                      team2: newTeam2
+                  }));
+              }
+          });
+
+          await Promise.all(updates);
+          console.log(`Updated ${updates.length} matches.`);
+      } catch (e) {
+          console.error("Error batch updating guest:", e);
+          throw e;
+      }
+  };
+
   return (
     <ClubContext.Provider value={{ 
         activeClub, 
@@ -523,7 +593,9 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
         invitedClubs,
         deleteClub,
         userClubs,
-        setActiveClub
+        setActiveClub,
+        updateGuestToUser,
+        guests
     }}>
       {children}
     </ClubContext.Provider>

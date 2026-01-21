@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Switch, Modal, FlatList, TouchableOpacity, ScrollView, Alert, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, Switch, Modal, FlatList, TouchableOpacity, ScrollView, Alert, StatusBar, TextInput } from 'react-native';
 import Button from '../components/Button';
 import { useNavigation } from '@react-navigation/native';
 import { useClub } from '../context/ClubContext';
@@ -11,10 +11,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function MatchSetupScreen() {
   const navigation = useNavigation<any>();
-  const { members } = useClub();
+  const { members, guests } = useClub();
   const { theme, isDark } = useTheme();
   
   const styles = useMemo(() => createStyles(theme), [theme]);
+
+  const allPlayers = useMemo(() => [...members, ...guests], [members, guests]);
 
   const [isDoubles, setIsDoubles] = useState(false);
   const [scoreMode, setScoreMode] = useState<'live' | 'manual'>('live');
@@ -33,10 +35,14 @@ export default function MatchSetupScreen() {
   // Modal State
   const [modalVisible, setModalVisible] = useState(false);
   const [selectingFor, setSelectingFor] = useState<'p1' | 'p2' | 'p3' | 'p4' | null>(null);
+  const [guestName, setGuestName] = useState('');
+  const [showGuestInput, setShowGuestInput] = useState(false);
 
   const openSelector = (playerKey: 'p1' | 'p2' | 'p3' | 'p4') => {
     setSelectingFor(playerKey);
     setModalVisible(true);
+    setShowGuestInput(false);
+    setGuestName('');
   };
 
   const selectPlayer = (user: User) => {
@@ -48,6 +54,19 @@ export default function MatchSetupScreen() {
     setSelectingFor(null);
   };
 
+  const addGuest = () => {
+      if (!guestName.trim()) {
+          Alert.alert("Name Required", "Please enter a name for the guest.");
+          return;
+      }
+      const guestUser: User = {
+          id: `guest_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          displayName: guestName, 
+          email: '', // Placeholder
+      };
+      selectPlayer(guestUser);
+  };
+
   const getTeams = () => {
     const t1 = [{ id: p1?.id || 'p1', name: p1?.displayName || 'Player 1' }];
     if (isDoubles) t1.push({ id: p2?.id || 'p2', name: p2?.displayName || 'Player 2' });
@@ -56,6 +75,16 @@ export default function MatchSetupScreen() {
     if (isDoubles) t2.push({ id: p4?.id || 'p4', name: p4?.displayName || 'Player 4' });
 
     return { team1: t1, team2: t2 };
+  };
+
+  const getGuestNamesMap = (t1: any[], t2: any[]) => {
+      const map: Record<string, string> = {};
+      [...t1, ...t2].forEach(p => {
+          if (p.id.startsWith('guest_')) {
+              map[p.id] = p.name;
+          }
+      });
+      return map;
   };
 
   const startMatch = () => {
@@ -72,6 +101,7 @@ export default function MatchSetupScreen() {
     }
 
     const { team1, team2 } = getTeams();
+    const guestNames = getGuestNamesMap(team1, team2);
 
     if (scoreMode === 'live') {
       navigation.navigate('LiveScore', {
@@ -80,7 +110,8 @@ export default function MatchSetupScreen() {
         team2,
         matchType,
         pointsPerSet,
-        goldenPoint
+        goldenPoint,
+        guestNames
       });
     } else {
       navigation.navigate('ManualScore', {
@@ -88,6 +119,7 @@ export default function MatchSetupScreen() {
         team1,
         team2,
         matchType,
+        guestNames
       });
     }
   };
@@ -248,24 +280,55 @@ export default function MatchSetupScreen() {
               <Text style={styles.modalTitle}>Select Player</Text>
               <Button title="Close" variant="outline" onPress={() => setModalVisible(false)} style={{ paddingVertical: 8, paddingHorizontal: 16 }} />
             </View>
+            
+            <View style={{padding: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.border}}>
+                {!showGuestInput ? (
+                    <TouchableOpacity style={styles.richModeBtn} onPress={() => setShowGuestInput(true)}>
+                        <MaterialCommunityIcons name="account-plus" size={24} color={theme.colors.primary} />
+                        <Text style={[styles.richModeText, {color: theme.colors.primary}]}>Add Guest Player</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <View style={{flexDirection: 'row', gap: 8}}>
+                        <TextInput 
+                            style={[
+                                styles.richModeBtn, 
+                                { flex: 1, borderWidth: 1, borderColor: theme.colors.border, paddingHorizontal: 12, backgroundColor: theme.colors.surface }
+                            ]}
+                            placeholder="Guest Name"
+                            value={guestName}
+                            onChangeText={setGuestName}
+                            autoFocus
+                        />
+                        <Button title="Add" onPress={addGuest} style={{minWidth: 80}} />
+                    </View>
+                )}
+            </View>
+
             <FlatList
-              data={members}
+              data={allPlayers} // Combined list
               keyExtractor={(item) => item.id}
               contentContainerStyle={{ paddingBottom: 40 }}
               renderItem={({ item }) => {
                 const isSelected = [p1?.id, p2?.id, p3?.id, p4?.id].includes(item.id);
+                const isGuest = item.id.startsWith('guest_');
                 return (
                   <TouchableOpacity 
                     style={[styles.memberItem, isSelected && styles.disabledItem]} 
                     onPress={() => !isSelected && selectPlayer(item)}
                     disabled={isSelected}
                   >
-                    <View style={[styles.avatar, isSelected && styles.disabledAvatar]}>
+                    <View style={[styles.avatar, isSelected && styles.disabledAvatar, isGuest && { backgroundColor: theme.colors.secondary }]}>
                       <Text style={styles.avatarText}>{item.displayName.charAt(0)}</Text>
                     </View>
                     <View>
-                      <Text style={[styles.memberName, isSelected && styles.disabledText]}>{item.displayName}</Text>
-                      <Text style={styles.memberEmail}>Rank: {item.rank}</Text>
+                      <Text style={[styles.memberName, isSelected && styles.disabledText]}>
+                          {item.displayName} {isGuest ? '(Guest)' : ''}
+                      </Text>
+                      {!isGuest ? (
+                          <Text style={styles.memberEmail}>Rank: {item.rank || '-'}</Text>
+                      ) : (
+                          <Text style={styles.memberEmail}>Guest Player</Text>
+                      )}
                     </View>
                     {isSelected && <MaterialCommunityIcons name="check-circle" size={24} color={theme.colors.primary} style={styles.selectedIcon} />}
                   </TouchableOpacity>

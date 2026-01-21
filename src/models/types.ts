@@ -44,6 +44,7 @@ export interface Match {
     maxConsecutivePts: { team1: number, team2: number };
     pointsWonOnServe: { team1: number, team2: number };
   };
+  guestNames?: Record<string, string>; // Map of guest_ID to display name
 }
 
 export interface PlayerStats {

@@ -38,7 +38,10 @@ export default function HomeScreen() {
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   // Data helpers
-  const getPlayerName = (id: string) => {
+  const getPlayerName = (id: string, match?: any) => {
+    if (match?.guestNames && match.guestNames[id]) {
+        return match.guestNames[id];
+    }
     const u = allUsers?.find(u => u.id === id) || members.find(m => m.id === id);
     return u ? u.displayName : 'Unknown';
   };
@@ -334,7 +337,7 @@ export default function HomeScreen() {
                                <View style={styles.matchTeamRow}>
                                    <View style={[styles.teamDot, {backgroundColor: m.winnerTeam===1 ? theme.colors.primary : theme.colors.textSecondary}]} />
                                    <Text style={[styles.matchTeamName, m.winnerTeam===1 && styles.boldText]}>
-                                       {m.team1.map(id => getPlayerName(id)).join(' / ')}
+                                       {m.team1.map(id => getPlayerName(id, m)).join(' / ')}
                                    </Text>
                                    <Text style={[styles.matchScoreText, m.winnerTeam===1 && styles.scoreWinner]}>
                                        {m.scores.map(s => s.team1Score).join('-')}
@@ -345,7 +348,7 @@ export default function HomeScreen() {
                                <View style={styles.matchTeamRow}>
                                    <View style={[styles.teamDot, {backgroundColor: m.winnerTeam===2 ? theme.colors.primary : theme.colors.textSecondary}]} />
                                    <Text style={[styles.matchTeamName, m.winnerTeam===2 && styles.boldText]}>
-                                       {m.team2.map(id => getPlayerName(id)).join(' / ')}
+                                       {m.team2.map(id => getPlayerName(id, m)).join(' / ')}
                                    </Text>
                                    <Text style={[styles.matchScoreText, m.winnerTeam===2 && styles.scoreWinner]}>
                                        {m.scores.map(s => s.team2Score).join('-')}

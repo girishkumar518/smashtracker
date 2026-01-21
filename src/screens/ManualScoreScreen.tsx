@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, Alert, ScrollView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Alert, ScrollView, StatusBar, TouchableOpacity, Modal, FlatList } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import { useClub } from '../context/ClubContext';
-import { Match, MatchSet } from '../models/types';
+import { Match, MatchSet, User } from '../models/types';
 import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme/theme';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 
 type ManualScoreParams = {
   isDoubles: boolean;
@@ -15,6 +16,7 @@ type ManualScoreParams = {
   matchType?: 1 | 3;
   match?: Match;
   isEdit?: boolean;
+  guestNames?: Record<string, string>;
 };
 
 export default function ManualScoreScreen() {
@@ -29,15 +31,54 @@ export default function ManualScoreScreen() {
 
   // Helper to resolve name
   const getName = (id: string) => {
+      // Check guest map first
+      if (params.guestNames && params.guestNames[id]) return params.guestNames[id];
+      if (match?.guestNames && match.guestNames[id]) return match.guestNames[id];
+      
       // Search in allUsers (history) first, then members
       const u = allUsers?.find(u => u.id === id) || members.find(m => m.id === id);
       return u ? u.displayName : 'Player';
   };
-
+  
   // Use existing match data if editing, else use params
-  const team1 = match ? match.team1.map(id => ({id, name: getName(id)})) : params.team1;
-  const team2 = match ? match.team2.map(id => ({id, name: getName(id)})) : params.team2;
+  // We keep state for teams to allow editing
+  const [team1Players, setTeam1Players] = useState(match ? match.team1.map(id => ({id, name: getName(id)})) : params.team1);
+  const [team2Players, setTeam2Players] = useState(match ? match.team2.map(id => ({id, name: getName(id)})) : params.team2);
+  const [currentGuestNames, setCurrentGuestNames] = useState(match?.guestNames || params.guestNames || {});
+
   const currentMatchType = params.matchType || 3;
+
+  // Player Selection for Edit Mode
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingTeam, setEditingTeam] = useState<1 | 2>(1);
+  const [editingIndex, setEditingIndex] = useState(0);
+
+  const openPlayerSelector = (team: 1 | 2, index: number) => {
+      if (!isEdit) return;
+      setEditingTeam(team);
+      setEditingIndex(index);
+      setModalVisible(true);
+  };
+
+  const selectPlayer = (user: User) => {
+      // Logic to replace player at specific index
+      if (editingTeam === 1) {
+          const newTeam = [...team1Players];
+          newTeam[editingIndex] = { id: user.id, name: user.displayName };
+          setTeam1Players(newTeam);
+      } else {
+          const newTeam = [...team2Players];
+          newTeam[editingIndex] = { id: user.id, name: user.displayName };
+          setTeam2Players(newTeam);
+      }
+
+      // If user is guest, update map
+      if (user.id.startsWith('guest_')) {
+          setCurrentGuestNames(prev => ({...prev, [user.id]: user.displayName}));
+      }
+
+      setModalVisible(false);
+  };
 
 
   const [s1t1, setS1T1] = useState(match?.scores[0]?.team1Score.toString() || '');
@@ -121,12 +162,13 @@ export default function ManualScoreScreen() {
                id: activeClub?.id + '_' + Date.now(),
                clubId: activeClub?.id || '',
                date: match.date, // Preserve date
-               team1: match.team1,
-               team2: match.team2,
+               team1: team1Players.map(p => p.id),
+               team2: team2Players.map(p => p.id),
                scores: recordedSets,
                winnerTeam,
                isLive: false,
-               durationSeconds: 0 
+               durationSeconds: 0,
+               guestNames: currentGuestNames
          };
          recordMatch(newMatch);
          navigation.goBack();
@@ -136,15 +178,35 @@ export default function ManualScoreScreen() {
           id: Math.random().toString(),
           clubId: activeClub?.id || 'unknown',
           date: Date.now(),
-          team1: team1.map(p => p.id), 
-          team2: team2.map(p => p.id),
+          team1: team1Players.map(p => p.id), 
+          team2: team2Players.map(p => p.id),
           scores: recordedSets,
           winnerTeam: winnerTeam,
-          isLive: false
+          isLive: false,
+          guestNames: currentGuestNames
         };
         recordMatch(newMatch);
         navigation.navigate('Home' as never);
     }
+  };
+
+  const renderTeamNames = (teamPlayers: {id: string, name: string}[], teamIndex: 1 | 2) => {
+     if (!isEdit) return <Text style={styles.label}>{teamPlayers.map(p => p.name).join(' & ')}</Text>;
+     
+     return (
+         <View style={{flexDirection:'row', justifyContent:'center', minHeight: 32, flexWrap:'wrap', gap: 8}}>
+            {teamPlayers.map((p, i) => (
+                <TouchableOpacity 
+                   key={i} 
+                   onPress={() => openPlayerSelector(teamIndex, i)}
+                   style={{flexDirection:'row', alignItems:'center', backgroundColor: theme.colors.surfaceHighlight, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12}}
+                >
+                    <Text style={[styles.label, {marginBottom: 0, marginRight: 4}]}>{p.name}</Text>
+                    <Ionicons name="pencil" size={12} color={theme.colors.primary} />
+                </TouchableOpacity>
+            ))}
+         </View>
+     );
   };
 
   return (
@@ -163,7 +225,7 @@ export default function ManualScoreScreen() {
           <Text style={styles.setHeader}>Set 1</Text>
           <View style={styles.inputRow}>
             <View style={styles.playerInput}>
-                <Text style={styles.label}>{team1.map(p => p.name).join(' & ')}</Text>
+                {renderTeamNames(team1Players, 1)}
                 <TextInput 
                   style={styles.input} 
                   keyboardType="numeric" 
@@ -175,7 +237,7 @@ export default function ManualScoreScreen() {
             </View>
             <Text style={styles.vs}>-</Text>
             <View style={styles.playerInput}>
-                <Text style={styles.label}>{team2.map(p => p.name).join(' & ')}</Text>
+                {renderTeamNames(team2Players, 2)}
                 <TextInput 
                   style={styles.input} 
                   keyboardType="numeric" 
@@ -194,7 +256,7 @@ export default function ManualScoreScreen() {
           <Text style={styles.setHeader}>Set 2</Text>
           <View style={styles.inputRow}>
             <View style={styles.playerInput}>
-                <Text style={styles.label}>{team1.map(p => p.name).join(' & ')}</Text>
+                {renderTeamNames(team1Players, 1)}
                 <TextInput 
                   style={styles.input} 
                   keyboardType="numeric" 
@@ -206,7 +268,7 @@ export default function ManualScoreScreen() {
             </View>
             <Text style={styles.vs}>-</Text>
             <View style={styles.playerInput}>
-                <Text style={styles.label}>{team2.map(p => p.name).join(' & ')}</Text>
+                {renderTeamNames(team2Players, 2)}
                 <TextInput 
                   style={styles.input} 
                   keyboardType="numeric" 
@@ -223,7 +285,7 @@ export default function ManualScoreScreen() {
           <Text style={styles.setHeader}>Set 3 (If necessary)</Text>
           <View style={styles.inputRow}>
             <View style={styles.playerInput}>
-                <Text style={styles.label}>{team1.map(p => p.name).join(' & ')}</Text>
+                {renderTeamNames(team1Players, 1)}
                 <TextInput 
                   style={styles.input} 
                   keyboardType="numeric" 
@@ -235,7 +297,7 @@ export default function ManualScoreScreen() {
             </View>
             <Text style={styles.vs}>-</Text>
             <View style={styles.playerInput}>
-                <Text style={styles.label}>{team2.map(p => p.name).join(' & ')}</Text>
+                {renderTeamNames(team2Players, 2)}
                 <TextInput 
                   style={styles.input} 
                   keyboardType="numeric" 
@@ -252,6 +314,37 @@ export default function ManualScoreScreen() {
 
         <Button title="Save Match" onPress={handleSubmit} style={{ marginTop: 24, marginBottom: 40 }} />
       </ScrollView>
+
+      {/* Player Selection Modal for Editing */}
+      <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
+          <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+            <View style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: theme.colors.border }}>
+              <Text style={{ fontSize: 18, fontWeight: 'bold', color: theme.colors.textPrimary }}>Select Replacement Player</Text>
+              <Button title="Close" variant="outline" onPress={() => setModalVisible(false)} style={{ paddingVertical: 8, paddingHorizontal: 16 }} />
+            </View>
+            <FlatList
+              data={members}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ paddingBottom: 40 }}
+              renderItem={({ item }) => {
+                return (
+                  <TouchableOpacity 
+                    style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.border }} 
+                    onPress={() => selectPlayer(item)}
+                  >
+                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
+                      <Text style={{ color: 'white', fontWeight: 'bold' }}>{item.displayName.charAt(0)}</Text>
+                    </View>
+                    <View>
+                      <Text style={{ fontSize: 16, fontWeight: '600', color: theme.colors.textPrimary }}>{item.displayName}</Text>
+                      <Text style={{ fontSize: 12, color: theme.colors.textSecondary }}>Rank: {item.rank}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </Modal>
     </View>
   );
 }
