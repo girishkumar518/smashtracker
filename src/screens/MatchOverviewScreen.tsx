@@ -48,8 +48,19 @@ export default function MatchOverviewScreen() {
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   const getPlayerName = (id: string) => {
+    // 1. Check Guest Names Map specific to this match
+    if (match.guestNames && match.guestNames[id]) {
+        return match.guestNames[id];
+    }
+    
+    // 2. Check Club Members
     const u = allUsers?.find(u => u.id === id) || members.find(m => m.id === id);
-    return u ? u.displayName : 'Unknown';
+    if (u) return u.displayName;
+
+    // 3. Guest Fallback
+    if (id.startsWith('guest_')) return 'Guest Player';
+
+    return 'Unknown';
   };
 
   const t1Names = useMemo(() => match.team1.map(id => getPlayerName(id)).join(' / '), [match.team1]);

@@ -5,75 +5,33 @@ import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme/theme';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const { signInWithGoogle, signIn } = useAuth();
+  const { signInWithGoogle } = useAuth();
   const { theme, isDark } = useTheme();
 
   const styles = useMemo(() => createStyles(theme), [theme]);
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password');
-      return;
-    }
-    await signIn(email, password);
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
+      <View style={styles.keyboardView}>
         <View style={styles.header}>
           <Text style={styles.title}>SmashTracker</Text>
           <Text style={styles.subtitle}>Badminton Club Management</Text>
         </View>
 
         <View style={styles.form}>
+           <Text style={{textAlign: 'center', color: theme.colors.textSecondary, marginBottom: 24}}>
+             Sign in to manage your clubs, track scores, and view stats.
+           </Text>
+
            <TouchableOpacity 
-             style={[styles.button, { backgroundColor: '#DB4437', marginTop: 10 }]} 
+             style={[styles.button, { backgroundColor: '#DB4437', marginTop: 10, flexDirection: 'row', justifyContent: 'center' }]} 
              onPress={signInWithGoogle}
            >
-             <Text style={styles.buttonText}>Sign In with Google</Text>
+             <Text style={[styles.buttonText, {marginLeft: 8}]}>Sign In with Google</Text>
            </TouchableOpacity>
-
-           <View style={{flexDirection: 'row', alignItems: 'center', marginVertical: 24}}>
-               <View style={{flex: 1, height: 1, backgroundColor: theme.colors.surfaceHighlight}} />
-               <Text style={{marginHorizontal: 10, color: theme.colors.textSecondary}}>OR with Email</Text>
-               <View style={{flex: 1, height: 1, backgroundColor: theme.colors.surfaceHighlight}} />
-           </View>
-
-          <Text style={styles.label}>Email Address</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your email"
-            placeholderTextColor={theme.colors.textSecondary}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your password"
-            placeholderTextColor={theme.colors.textSecondary}
-            value={password}
-            onChangeText={setPassword}
-            autoCapitalize="none"
-            secureTextEntry
-          />
-
-          <TouchableOpacity style={styles.button} onPress={handleLogin}>
-            <Text style={styles.buttonText}>Sign In / Sign Up</Text>
-          </TouchableOpacity>
-
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }

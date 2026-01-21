@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, SafeAreaView, StatusBar, Platform, TouchableOpacity, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, SafeAreaView, StatusBar, Platform, TouchableOpacity, Animated, Easing, Alert } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { useAuth } from '../context/AuthContext';
 import { useClub } from '../context/ClubContext';
 import { useTheme } from '../context/ThemeContext';
@@ -39,11 +40,23 @@ export default function HomeScreen() {
 
   // Data helpers
   const getPlayerName = (id: string, match?: any) => {
+    // 1. Check if it's a Guest in THIS specific match
     if (match?.guestNames && match.guestNames[id]) {
         return match.guestNames[id];
     }
-    const u = allUsers?.find(u => u.id === id) || members.find(m => m.id === id);
-    return u ? u.displayName : 'Unknown';
+    
+    // 2. Check if it's a known Member
+    const member = members.find(m => m.id === id);
+    if (member) return member.displayName;
+
+    // 3. Check if it's in the global user cache (including past members)
+    const user = allUsers?.find(u => u.id === id);
+    if (user) return user.displayName;
+
+    // 4. Fallback: Check if it LOOKS like a guest ID but name is missing
+    if (id.startsWith('guest_')) return 'Guest Player';
+
+    return 'Unknown';
   };
 
   const stats = useMemo(() => {
@@ -105,6 +118,13 @@ export default function HomeScreen() {
       setRefreshing(false);
     }, 1000);
   }, []);
+
+  const copyInviteCode = async () => {
+      if (activeClub?.inviteCode) {
+          await Clipboard.setStringAsync(activeClub.inviteCode);
+          Alert.alert('Copied', 'Invite code copied to clipboard!');
+      }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -246,18 +266,62 @@ export default function HomeScreen() {
                   <View style={styles.clubHeader}>
                     <View>
                       <Text style={styles.clubName}>{activeClub.name}</Text>
-                      <View style={styles.roleTag}>
-                          <Text style={styles.roleText}>ADMIN</Text>
-                      </View>
+                      {(activeClub.ownerId === user?.id || activeClub.members.find(m => m.userId === user?.id)?.role === 'admin') && (
+                        <View style={styles.roleTag}>
+                            <Text style={styles.roleText}>ADMIN</Text>
+                        </View>
+                      )}
                     </View>
                     <TouchableOpacity onPress={() => navigation.navigate('ClubManagement')} style={styles.settingsBtn}>
                         <Ionicons name="settings-outline" size={20} color={theme.colors.textPrimary} />
                     </TouchableOpacity>
                   </View>
-                  <View style={styles.codeBox}>
-                      <Text style={styles.codeLabel}>INVITE CODE</Text>
-                      <Text style={styles.codeValue}>{activeClub.inviteCode}</Text>
-                  </View>
+                  
+                  {/* Admin Approval Notification */}
+                  {(activeClub.ownerId === user?.id || activeClub.members.find(m => m.userId === user?.id)?.role === 'admin') && 
+                    activeClub.joinRequests && activeClub.joinRequests.length > 0 && (
+                      <TouchableOpacity 
+                         style={{
+                             backgroundColor: theme.colors.surfaceHighlight, 
+                             paddingVertical: 10, 
+                             paddingHorizontal: 12, 
+                             marginBottom: 12, 
+                             borderRadius: 8, 
+                             flexDirection: 'row', 
+                             alignItems: 'center',
+                             borderWidth: 1,
+                             borderColor: theme.colors.border
+                         }}
+                         onPress={() => navigation.navigate('ClubManagement')}
+                      >
+                         <View style={{
+                             backgroundColor: theme.colors.secondary, 
+                             width: 24, 
+                             height: 24, 
+                             borderRadius: 12, 
+                             justifyContent: 'center', 
+                             alignItems: 'center',
+                             marginRight: 10
+                         }}>
+                            <Text style={{color: 'white', fontSize: 12, fontWeight: 'bold'}}>{activeClub.joinRequests.length}</Text>
+                         </View>
+                         <View style={{flex: 1}}>
+                            <Text style={{color: theme.colors.textPrimary, fontWeight: '600', fontSize: 13}}>
+                                Membership Request{activeClub.joinRequests.length > 1 ? 's' : ''}
+                            </Text>
+                            <Text style={{color: theme.colors.textSecondary, fontSize: 11}}>Tap to review approvals</Text>
+                         </View>
+                         <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
+                      </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity style={styles.codeBox} onPress={copyInviteCode}>
+                      <View>
+                        <Text style={styles.codeLabel}>INVITE CODE</Text>
+                        <Text style={styles.codeValue}>{activeClub.inviteCode}</Text>
+                      </View>
+                      <Ionicons name="copy-outline" size={20} color={theme.colors.textSecondary} />
+                  </TouchableOpacity>
               </View>
 
               {/* Stats Grid */}
@@ -335,23 +399,31 @@ export default function HomeScreen() {
                           <View style={styles.matchBody}>
                                {/* Team 1 */}
                                <View style={styles.matchTeamRow}>
-                                   <View style={[styles.teamDot, {backgroundColor: m.winnerTeam===1 ? theme.colors.primary : theme.colors.textSecondary}]} />
-                                   <Text style={[styles.matchTeamName, m.winnerTeam===1 && styles.boldText]}>
+                                   {m.winnerTeam === 1 ? (
+                                       <Ionicons name="trophy" size={14} color={theme.colors.secondary} style={{marginRight: 6}} />
+                                   ) : (
+                                       <View style={[styles.teamDot, {backgroundColor: theme.colors.textSecondary}]} />
+                                   )}
+                                   <Text style={[styles.matchTeamName, m.winnerTeam===1 && styles.boldText]} numberOfLines={1} ellipsizeMode="tail">
                                        {m.team1.map(id => getPlayerName(id, m)).join(' / ')}
                                    </Text>
                                    <Text style={[styles.matchScoreText, m.winnerTeam===1 && styles.scoreWinner]}>
-                                       {m.scores.map(s => s.team1Score).join('-')}
+                                       {m.scores.map(s => s.team1Score).join(' - ')}
                                    </Text>
                                </View>
 
                                {/* Team 2 */}
                                <View style={styles.matchTeamRow}>
-                                   <View style={[styles.teamDot, {backgroundColor: m.winnerTeam===2 ? theme.colors.primary : theme.colors.textSecondary}]} />
-                                   <Text style={[styles.matchTeamName, m.winnerTeam===2 && styles.boldText]}>
+                                   {m.winnerTeam === 2 ? (
+                                       <Ionicons name="trophy" size={14} color={theme.colors.secondary} style={{marginRight: 6}} />
+                                   ) : (
+                                       <View style={[styles.teamDot, {backgroundColor: theme.colors.textSecondary}]} />
+                                   )}
+                                   <Text style={[styles.matchTeamName, m.winnerTeam===2 && styles.boldText]} numberOfLines={1} ellipsizeMode="tail">
                                        {m.team2.map(id => getPlayerName(id, m)).join(' / ')}
                                    </Text>
                                    <Text style={[styles.matchScoreText, m.winnerTeam===2 && styles.scoreWinner]}>
-                                       {m.scores.map(s => s.team2Score).join('-')}
+                                       {m.scores.map(s => s.team2Score).join(' - ')}
                                    </Text>
                                </View>
                           </View>
@@ -566,9 +638,9 @@ const createStyles = (theme: Theme) => StyleSheet.create({
   matchBody: { gap: 8 },
   matchTeamRow: { flexDirection: 'row', alignItems: 'center', justifyContent:'space-between' },
   teamDot: { width: 6, height: 6, borderRadius: 3, marginRight: 8 },
-  matchTeamName: { flex:1, color: theme.colors.textSecondary, fontSize: 14 },
+  matchTeamName: { flex:1, color: theme.colors.textSecondary, fontSize: 14, marginRight: 8 },
   boldText: { color: theme.colors.textPrimary, fontWeight: '600' },
-  matchScoreText: { color: theme.colors.textSecondary, fontWeight: 'bold', width: 30, textAlign: 'right' },
+  matchScoreText: { color: theme.colors.textSecondary, fontWeight: 'bold', minWidth: 60, textAlign: 'right' },
   scoreWinner: { color: theme.colors.textPrimary },
 
   adminTip: { textAlign: 'center', marginTop: 8, color: theme.colors.textSecondary, fontSize: 10, fontStyle: 'italic' },

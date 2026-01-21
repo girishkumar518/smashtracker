@@ -135,7 +135,7 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
              }
         }
     }
-  }, [userClubs, activeClub]);
+  }, [userClubs]); // dependent on userClubs only, removed activeClub form dep array to avoid loops
 
   // 2. Fetch Matches & Members for Active Club
   useEffect(() => {
@@ -162,8 +162,10 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
          We need to fetch their displayNames from 'users' collection.
       */
       const fetchMembers = async () => {
+          console.log("ClubContext: fetchMembers started for club", activeClub.id);
           const memberIds = activeClub.members.map(m => m.userId);
           const requestIds = activeClub.joinRequests || [];
+          console.log("ClubContext: Request IDs to fetch:", requestIds);
           
           const uniqueIds = Array.from(new Set([...memberIds, ...requestIds]));
 
@@ -177,19 +179,45 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
 
           // Dedup again
           const reallyUniqueIds = Array.from(new Set(uniqueIds));
+          console.log("ClubContext: Total unique user IDs to fetch:", reallyUniqueIds.length);
           if (reallyUniqueIds.length === 0) return;
 
           try {
-              const userDocs = await Promise.all(reallyUniqueIds.map(uid => getDoc(doc(db, 'users', uid))));
-              const allUsersWithDeleted: User[] = userDocs
-                  .filter(d => d.exists())
-                  .map(d => ({ id: d.id, ...d.data() } as User));
+              // Use robust fetching that doesn't fail if one doc fails
+              const userDocsPromises = reallyUniqueIds.map(async (uid) => {
+                  try {
+                      return await getDoc(doc(db, 'users', uid));
+                  } catch (e) {
+                      console.warn(`ClubContext: Failed to fetch user ${uid}`, e);
+                      return null;
+                  }
+              });
+              
+              const userDocs = await Promise.all(userDocsPromises);
+              
+              const allUsersWithDeleted: User[] = userDocs.map((d, index) => {
+                  if (d && d.exists()) {
+                      return { id: d.id, ...d.data() } as User;
+                  }
+                  // Fallback for missing or error-prone user docs
+                  return {
+                      id: reallyUniqueIds[index],
+                      displayName: 'Unknown User',
+                      email: '',
+                      photoURL: undefined
+                  } as User;
+              });
+              
+              const resolvedRequests = allUsersWithDeleted.filter(u => requestIds.includes(u.id));
+              console.log("ClubContext: Resolved requests objects:", resolvedRequests.length);
               
               setMembers(allUsersWithDeleted.filter(u => memberIds.includes(u.id))); // Filter for current members only
-              setJoinRequests(allUsersWithDeleted.filter(u => requestIds.includes(u.id)));
+              setJoinRequests(resolvedRequests);
               setAllUsers(allUsersWithDeleted); // New State for History Lookup
           } catch (e) {
               console.error("Error fetching members:", e);
+              // Fallback to avoid infinite loading state
+              setJoinRequests(requestIds.map(id => ({ id, displayName: 'Error User', email: '' } as User)));
           }
           
           // EXTRACT GUESTS 

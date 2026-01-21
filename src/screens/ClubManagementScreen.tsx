@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, Share, Alert, TouchableOpacity, ScrollView, Platform, StatusBar, Modal, TextInput } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import * as Clipboard from 'expo-clipboard';
 import { useClub } from '../context/ClubContext';
 import { useAuth } from '../context/AuthContext'; 
 import Card from '../components/Card';
@@ -49,6 +50,11 @@ export default function ClubManagementScreen() {
       </View>
     );
   }
+
+  const copyInviteCode = async () => {
+    await Clipboard.setStringAsync(activeClub.inviteCode);
+    Alert.alert('Copied', 'Invite code copied to clipboard!');
+  };
 
   const shareInviteCode = async () => {
     try {
@@ -187,7 +193,12 @@ export default function ClubManagementScreen() {
        </View>
        <View style={{ flex: 1 }}>
          <Text style={styles.memberName}>{item.displayName}</Text>
-         <Text style={styles.memberEmail}>Guest Player</Text>
+         {(item.displayName === 'Unknown User' || item.displayName === 'Loading...') && (
+            <Text style={{fontSize: 10, color: theme.colors.error}}>
+                (ID: {item.id}) - Check Firestore Rules
+            </Text>
+         )}
+         <Text style={styles.memberEmail}>{item.email || 'No Email'}</Text>
        </View>
        <Button 
             title="Link to Member" 
@@ -230,7 +241,7 @@ export default function ClubManagementScreen() {
 
   const renderRequest = ({ item }: { item: any }) => (
     <View style={styles.memberRow}>
-       <View style={styles.memberAvatar}>
+       <View style={[styles.memberAvatar, { backgroundColor: '#ED8936' }]}>
           <Text style={styles.avatarText}>{item.displayName ? item.displayName.charAt(0) : '?'}</Text>
        </View>
        <View style={{ flex: 1 }}>
@@ -256,23 +267,38 @@ export default function ClubManagementScreen() {
           <Card style={styles.headerCard}>
               <Text style={styles.clubName}>{activeClub.name}</Text>
               <Text style={styles.sectionLabel}>Invite Code</Text>
-              <TouchableOpacity onPress={shareInviteCode}>
-                <Text style={styles.inviteCode}>{activeClub.inviteCode} <Text style={{fontSize: 14, color: '#3182CE'}}>(Share)</Text></Text>
+              
+              <TouchableOpacity onPress={copyInviteCode} style={{flexDirection: 'row', alignItems: 'center', marginTop: 8}}>
+                <Text style={styles.inviteCode}>{activeClub.inviteCode}</Text>
+                <View style={{marginLeft: 12, padding: 8, backgroundColor: theme.colors.surfaceHighlight, borderRadius: 8}}>
+                    <Text style={{fontSize: 14, color: theme.colors.primary, fontWeight: 'bold'}}>Copy</Text>
+                </View>
               </TouchableOpacity>
-              <View style={{ marginTop: 16 }}>
-                 <Button title="Invite from Contacts" variant="outline" onPress={() => navigation.navigate('InviteMembers' as never)} />
+
+              <View style={{ marginTop: 24 }}>
+                 <Button title="Share Invite" variant="outline" onPress={shareInviteCode} />
               </View>
           </Card>
 
           {/* --- JOIN REQUESTS (ADMIN ONLY) --- */}
-          {isAdmin && joinRequests && joinRequests.length > 0 && (
+          {isAdmin && (
+            (joinRequests && joinRequests.length > 0) || (activeClub.joinRequests && activeClub.joinRequests.length > 0)
+          ) && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Join Requests ({joinRequests.length})</Text>
+                <Text style={styles.sectionTitle}>Join Requests ({activeClub.joinRequests?.length || 0})</Text>
                 <Card style={{padding: 0, backgroundColor: theme.colors.surface}}>
                     <FlatList
-                        data={joinRequests}
-                        renderItem={renderRequest}
-                        keyExtractor={item => item.id}
+                        data={activeClub.joinRequests || []}
+                        renderItem={({ item: requestId }) => {
+                             // Try to find the user object, or fallback
+                             const userObj = joinRequests?.find(u => u.id === requestId) || { 
+                                 id: requestId, 
+                                 displayName: 'Loading...', 
+                                 email: 'Fetching profile...' 
+                             };
+                             return renderRequest({ item: userObj });
+                        }}
+                        keyExtractor={id => id}
                         scrollEnabled={false}
                         ItemSeparatorComponent={() => <View style={styles.separator} />}
                     />
@@ -382,6 +408,51 @@ export default function ClubManagementScreen() {
       </Modal>
 
       {/* Add Guest Modal */}
+      {Platform.OS === 'web' ? (
+        addGuestModalVisible && (
+            <View style={[styles.modalOverlay, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }]}>
+                 <View style={[styles.dialogContainer, { backgroundColor: theme.colors.surface }]}>
+                    <Text style={styles.dialogTitle}>Add New Guest</Text>
+                    <Text style={styles.dialogDescription}>Create a guest player to use in matches.</Text>
+                    
+                    <TextInput
+                        style={[styles.input, { color: theme.colors.textPrimary, borderColor: theme.colors.border, outlineStyle: 'none' } as any]}
+                        placeholder="Guest Name (e.g. John Doe)"
+                        placeholderTextColor={theme.colors.textSecondary}
+                        value={newGuestName}
+                        onChangeText={setNewGuestName}
+                        autoFocus
+                    />
+
+                    <View style={styles.dialogActions}>
+                        <Button 
+                            title="Cancel" 
+                            variant="outline" 
+                            onPress={() => {
+                                setAddGuestModalVisible(false);
+                                setNewGuestName('');
+                            }}
+                            style={{flex: 1, marginRight: 8}}
+                        />
+                        <Button 
+                            title="Add" 
+                            onPress={async () => {
+                                if(!newGuestName.trim()) return;
+                                try {
+                                    await addGuestPlayer(newGuestName);
+                                    setAddGuestModalVisible(false);
+                                    setNewGuestName('');
+                                } catch(e) {
+                                    Alert.alert("Error", "Failed to add guest.");
+                                }
+                            }}
+                            style={{flex: 1}}
+                        />
+                    </View>
+                </View>
+            </View>
+        )
+      ) : (
       <Modal visible={addGuestModalVisible} transparent animationType="fade" onRequestClose={() => setAddGuestModalVisible(false)}>
         <View style={styles.modalOverlay}>
             <View style={[styles.dialogContainer, { backgroundColor: theme.colors.surface }]}>
@@ -425,6 +496,7 @@ export default function ClubManagementScreen() {
             </View>
         </View>
       </Modal>
+      )}
 
     </View>
   );

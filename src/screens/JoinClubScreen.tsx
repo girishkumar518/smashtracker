@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, Alert, ActivityIndicator, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Alert, ActivityIndicator, StatusBar, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Button from '../components/Button';
 import Card from '../components/Card';
@@ -26,14 +26,22 @@ export default function JoinClubScreen() {
     try {
       const result = await joinClub(code);
       if (result.success) {
-        Alert.alert('Status', result.message, [
-          { text: 'Go to Dashboard', onPress: () => navigation.replace('Home') }
-        ]);
+        if (Platform.OS === 'web') {
+            alert(result.message);
+            navigation.replace('Home');
+        } else {
+            Alert.alert('Status', result.message, [
+                { text: 'Go to Dashboard', onPress: () => navigation.replace('Home') }
+            ]);
+        }
       } else {
-        Alert.alert('Error', result.message || 'Invalid invite code. Please check and try again.');
+        const errorMsg = result.message || 'Invalid invite code. Please check and try again.';
+        if (Platform.OS === 'web') alert(errorMsg);
+        else Alert.alert('Error', errorMsg);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to join club. Please try again.');
+        if (Platform.OS === 'web') alert('Failed to join club. Please try again.');
+        else Alert.alert('Error', 'Failed to join club. Please try again.');
     } finally {
       setLoading(false);
     }

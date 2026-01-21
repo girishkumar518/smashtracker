@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Platform } from 'react-native';
 import { User } from '../models/types';
 import { auth, db } from '../services/firebaseConfig';
-import { onAuthStateChanged, User as FirebaseUser, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut as firebaseSignOut, GoogleAuthProvider, signInWithCredential, signInWithPopup, deleteUser } from 'firebase/auth';
+import { onAuthStateChanged, User as FirebaseUser, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut as firebaseSignOut, GoogleAuthProvider, signInWithCredential, signInWithPopup, deleteUser, sendEmailVerification } from 'firebase/auth';
 import { setDoc, doc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { registerForPushNotificationsAsync } from '../services/notificationService';
@@ -39,24 +39,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Real Firebase Auth Listener
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Prepare User Data
-        const userData: User = {
-          id: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Player',
-        };
+        try {
+          // 1. Fetch existing additional data from Firestore (like phoneNumber)
+          const userDocRef = doc(db, 'users', firebaseUser.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          const existingData = userDocSnap.exists() ? userDocSnap.data() : {};
 
-        // Sync with Firestore "users" collection (Non-blocking background)
-        setUser(userData);
-        if (firebaseUser.displayName) { 
-           // Register Push Token
-           registerForPushNotificationsAsync().then(token => {
-               if (token) {
-                   userData.pushToken = token;
-               }
-               // Fire and forget sync
-               setDoc(doc(db, 'users', firebaseUser.uid), userData, { merge: true })
-                 .catch(e => console.error("Error saving user to Firestore:", e));
+          // 2. Prepare User Data combining Auth info and Firestore info
+          const userData: User = {
+            id: firebaseUser.uid,
+            email: firebaseUser.email || existingData.email || '',
+            displayName: existingData.displayName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Player',
+            phoneNumber: existingData.phoneNumber, // Persist phone number from Firestore
+          };
+
+          setUser(userData);
+
+          // 3. Sync/Update Firestore (Background)
+          // Independent of Push Notification success
+          (async () => {
+              let token = null;
+              try {
+                  token = await registerForPushNotificationsAsync();
+              } catch (e) {
+                  console.warn("Push token fetch failed (ignoring):", e);
+              }
+
+              const updates: any = { ...userData }; // Start with current state
+              if (token) updates.pushToken = token;
+              
+              // Always write to Firestore to ensure user exists
+              await setDoc(userDocRef, updates, { merge: true });
+          })().catch(e => console.error("Error saving user to Firestore:", e));
+        } catch (error) {
+           console.error("Error fetching user profile:", error);
+           // Fallback if firestore fails
+           setUser({
+              id: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              displayName: firebaseUser.displayName || 'Player'
            });
         }
       } else {
@@ -74,11 +95,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (password) {
         // Try to sign in or sign up
         try {
-          await signInWithEmailAndPassword(auth, email, password);
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          
+          if (!userCredential.user.emailVerified) {
+             await firebaseSignOut(auth);
+             alert("Email not verified.\n\nPlease check your inbox for the activation link.");
+             setIsLoading(false);
+             return;
+          }
+
         } catch (error: any) {
           // If user not found, try to create new account (Simplified Flow)
           if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-             await createUserWithEmailAndPassword(auth, email, password);
+             try {
+                const newCred = await createUserWithEmailAndPassword(auth, email, password);
+                await sendEmailVerification(newCred.user);
+                await firebaseSignOut(auth); // Force logout
+                alert("Account created successfully!\n\nAn activation link has been sent to " + email + ".\nPlease verify your email before logging in.");
+                setIsLoading(false);
+                return;
+             } catch (createError: any) {
+                 if (createError.code === 'auth/email-already-in-use') {
+                     // This implies the first sign-in failed due to wrong password (if invalid-credential covers both)
+                     alert("Incorrect password.");
+                 } else {
+                     throw createError;
+                 }
+             }
           } else {
              throw error;
           }
