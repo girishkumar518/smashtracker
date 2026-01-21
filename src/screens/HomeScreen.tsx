@@ -64,7 +64,7 @@ export default function HomeScreen() {
 
     let played = 0;
     let wins = 0;
-    const partnerStats: {[key: string]: {played: number, wins: number}} = {};
+    const partnerStats: {[key: string]: {played: number, wins: number, name: string}} = {};
 
     matches.forEach(m => {
       const userId = user.id;
@@ -84,14 +84,24 @@ export default function HomeScreen() {
         }
 
         if (partnerId) {
-            if (!partnerStats[partnerId]) partnerStats[partnerId] = { played: 0, wins: 0 };
+            if (!partnerStats[partnerId]) {
+                 partnerStats[partnerId] = { played: 0, wins: 0, name: getPlayerName(partnerId, m) };
+            }
+            // If the name was previously unknown/generic but this match has a better name (e.g. from guestNames), update it
+            if (partnerStats[partnerId].name === 'Unknown' || partnerStats[partnerId].name === 'Guest Player') {
+                const potentialName = getPlayerName(partnerId, m);
+                if (potentialName !== 'Unknown' && potentialName !== 'Guest Player') {
+                    partnerStats[partnerId].name = potentialName;
+                }
+            }
+
             partnerStats[partnerId].played++;
             if (won) partnerStats[partnerId].wins++;
         }
       }
     });
 
-    let bestPartner = null;
+    let bestPartner: { played: number; wins: number; name: string; rate: number } | null = null;
     let maxRate = -1;
 
     Object.keys(partnerStats).forEach(id => {
@@ -99,7 +109,7 @@ export default function HomeScreen() {
         const rate = s.wins / s.played;
         if (rate > maxRate || (rate === maxRate && s.played > (bestPartner?.played || 0))) {
             maxRate = rate;
-            bestPartner = { name: getPlayerName(id), ...s, rate: Math.round(rate * 100) };
+            bestPartner = { ...s, rate: Math.round(rate * 100) };
         }
     });
 
@@ -342,15 +352,15 @@ export default function HomeScreen() {
                 <View style={styles.partnerCard}>
                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
                        <View style={styles.avatarSmall}>
-                          <Text style={styles.avatarTextSmall}>{stats.bestPartner.name.charAt(0)}</Text>
+                          <Text style={styles.avatarTextSmall}>{stats.bestPartner?.name?.charAt(0) || '?'}</Text>
                        </View>
                        <View style={{marginLeft: 12}}>
                           <Text style={styles.partnerLabel}>BEST PARTNER</Text>
-                          <Text style={styles.partnerName}>{stats.bestPartner.name}</Text>
+                          <Text style={styles.partnerName}>{stats.bestPartner?.name || 'Unknown'}</Text>
                        </View>
                    </View>
                    <View style={{alignItems: 'flex-end'}}>
-                      <Text style={styles.partnerRate}>{stats.bestPartner.rate}%</Text>
+                      <Text style={styles.partnerRate}>{stats.bestPartner?.rate || 0}%</Text>
                       <Text style={styles.partnerSub}>Win Rate</Text>
                    </View>
                 </View>

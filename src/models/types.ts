@@ -8,6 +8,7 @@ export interface User {
   phoneNumber?: string;
   pushToken?: string;
   clubInvites?: string[]; // Array of Club IDs inviting the user
+  rank?: string | number;
 }
 
 export interface ClubMember {

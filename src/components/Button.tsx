@@ -7,11 +7,12 @@ interface ButtonProps {
   variant?: 'primary' | 'secondary' | 'outline' | 'danger';
   size?: 'small' | 'medium' | 'large';
   style?: ViewStyle;
+  textStyle?: TextStyle;
   loading?: boolean;
   disabled?: boolean;
 }
 
-export default function Button({ onPress, title, variant = 'primary', size = 'medium', style, loading = false, disabled = false }: ButtonProps) {
+export default function Button({ onPress, title, variant = 'primary', size = 'medium', style, textStyle, loading = false, disabled = false }: ButtonProps) {
   const getBackgroundColor = () => {
     if (disabled) return '#CBD5E0';
     switch (variant) {
@@ -64,7 +65,7 @@ export default function Button({ onPress, title, variant = 'primary', size = 'me
       {loading ? (
         <ActivityIndicator color={getTextColor()} />
       ) : (
-        <Text style={[styles.text, { color: getTextColor(), fontSize: getTextSize() }]}>{title}</Text>
+        <Text style={[styles.text, { color: getTextColor(), fontSize: getTextSize() }, textStyle]}>{title}</Text>
       )}
     </TouchableOpacity>
   );

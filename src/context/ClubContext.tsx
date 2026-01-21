@@ -570,6 +570,7 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
           const q = query(
               collection(db, 'matches'), 
               where('clubId', '==', activeClub.id),
+              // @ts-ignore
               or(
                   where('team1', 'array-contains', guestId),
                   where('team2', 'array-contains', guestId)

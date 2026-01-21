@@ -19,19 +19,23 @@ const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 // Initialize Auth with Persistence
-let auth;
+let auth: any;
 if (Platform.OS === 'web') {
   // On web, getAuth() uses browserLocalPersistence by default
   auth = getAuth(app); 
 } else {
   if (getApps().length === 0) {
+     // @ts-ignore
      auth = initializeAuth(app, {
+        // @ts-ignore
         persistence: getReactNativePersistence(ReactNativeAsyncStorage)
      });
   } else {
      // If app was already initialized, auth might be too, try to get it
      try {
+       // @ts-ignore
        auth = initializeAuth(app, {
+          // @ts-ignore
           persistence: getReactNativePersistence(ReactNativeAsyncStorage)
        });
      } catch (e) {
@@ -45,7 +49,7 @@ export { auth };
 // Initialize Firestore
 // Use initializeFirestore to optimize settings for React Native
 // Using experimentalForceLongPolling as it is often more reliable on Android
-let db;
+let db: any;
 if (Platform.OS === 'web') {
     db = getFirestore(app);
 } else {
@@ -53,6 +57,7 @@ if (Platform.OS === 'web') {
         experimentalForceLongPolling: true,
     });
 }
+
 
 export { db };
 
