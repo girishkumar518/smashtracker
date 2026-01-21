@@ -2,7 +2,7 @@
   "expo": {
     "name": "SmashTracker",
     "slug": "smashtracker",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -23,7 +23,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.badminton.smashtracker",
-      "versionCode": 2,
+      "versionCode": 3,
       "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
