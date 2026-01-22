@@ -34,7 +34,11 @@ const FirebaseRecaptcha = forwardRef<FirebaseAuthApplicationVerifier, FirebaseRe
         setVisible(true);
         setLoading(true);
       });
-    }
+    },
+    // Add dummy render/clear methods potentially called by Firebase
+    render: async () => 0, 
+    clear: () => {},
+    reset: () => {},
   }));
 
   const handleCancel = () => {
@@ -56,30 +60,41 @@ const FirebaseRecaptcha = forwardRef<FirebaseAuthApplicationVerifier, FirebaseRe
     body { display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: white; }
     #recaptcha-container { transform: scale(1.0); transform-origin: 0 0; }
   </style>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
   <script>
     const config = ${JSON.stringify(firebaseConfig)};
-    firebase.initializeApp(config);
+    // Ensure config has all required fields for auth
+    if (!config.authDomain) console.warn("Missing authDomain in config");
+    
+    try {
+      firebase.initializeApp(config);
+    } catch (e) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', error: 'Init failed: ' + e.message }));
+    }
     
     function onLoad() {
+      // console.log("WebView Loaded");
       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'load' }));
       try {
         window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
           'size': 'normal',
           'callback': function(response) {
+            // console.log("Captcha Solved");
             window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'verify', token: response }));
           },
           'expired-callback': function() {
             window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'expire' }));
           },
           'error-callback': function(error) {
-             window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', error: error.message || 'Unknown error' }));
+             window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', error: error.message || 'Recaptcha error' }));
           }
         });
-        window.recaptchaVerifier.render();
+        window.recaptchaVerifier.render().catch(function(e) {
+           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', error: 'Render failed: ' + e.message }));
+        });
       } catch (e) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', error: e.toString() }));
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', error: 'Setup failed: ' + e.toString() }));
       }
     }
   </script>

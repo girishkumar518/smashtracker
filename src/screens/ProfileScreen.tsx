@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, Alert, TouchableWithoutFeedback, Keyboard, ScrollView, StatusBar, SafeAreaView, TouchableOpacity, Button as NativeButton, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Alert, TouchableWithoutFeedback, Keyboard, ScrollView, StatusBar, SafeAreaView, TouchableOpacity, Button as NativeButton, Platform, Linking } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useClub } from '../context/ClubContext';
 import Button from '../components/Button';
@@ -12,6 +12,7 @@ import CountryCodePicker from '../components/CountryCodePicker';
 import { parsePhoneNumber } from '../constants/CountryCodes';
 import app, { auth } from '../services/firebaseConfig';
 import { PhoneAuthProvider, signInWithCredential, RecaptchaVerifier, signInWithPhoneNumber, updatePhoneNumber, linkWithPhoneNumber } from 'firebase/auth';
+import Constants from 'expo-constants';
 
 export default function ProfileScreen() {
   const { user, updateProfile, deleteAccount } = useAuth();
@@ -73,14 +74,7 @@ export default function ProfileScreen() {
         Alert.alert("OTP Sent", "Please enter the 6-digit code sent to your phone.");
     } catch (err: any) {
         console.error("Verification Error:", err);
-        if (err.code === 'auth/billing-not-enabled') {
-            Alert.alert(
-                "Billing Required", 
-                "SMS delivery requires Firebase Billing to be enabled. \n\nFor development, please add 'Phone numbers for testing' in the Firebase Console to bypass this."
-            );
-        } else {
-            Alert.alert("Error", `Failed to send OTP: ${err.message}`);
-        }
+        Alert.alert("Error", `Failed to send OTP:\n${err.message}\n${err.stack || ''}`);
     }
   };
 
@@ -127,6 +121,15 @@ export default function ProfileScreen() {
     if (!name.trim()) {
       Alert.alert('Error', 'Name cannot be empty');
       return;
+    }
+
+    // Prevent saving unverified phone numbers
+    if (isPhoneChanged) {
+        Alert.alert(
+            "Verification Required", 
+            "You have entered a new phone number but haven't verified it yet.\n\nPlease tap 'Send OTP' to verify the new number, or revert to your old number to save other changes."
+        );
+        return;
     }
 
     setLoading(true);
@@ -343,6 +346,19 @@ export default function ProfileScreen() {
                   style={{ marginTop: 12 }}
                 />
             </View>
+
+            <View style={styles.footer}>
+                <Button 
+                  title="Send Feedback" 
+                  onPress={handleFeedback}
+                  variant="secondary"
+                  style={styles.feedbackBtn}
+                  textStyle={{ color: theme.colors.primary }}
+                />
+                <Text style={styles.versionText}>
+                    Version {Constants.expoConfig?.version || Constants.manifest2?.extra?.expoClient?.version || '1.0.0'}
+                </Text>
+            </View>
           </View>
         </ScrollView>
       </View>
@@ -457,4 +473,20 @@ const createStyles = (theme: Theme) => StyleSheet.create({
     marginBottom: 16,
     lineHeight: 20,
   },
+  footer: {
+      marginTop: 40,
+      alignItems: 'center',
+      paddingBottom: 40,
+  },
+  feedbackBtn: {
+      backgroundColor: 'transparent',
+      borderColor: theme.colors.primary,
+      borderWidth: 1,
+      minWidth: 200,
+  },
+  versionText: {
+      marginTop: 16,
+      color: theme.colors.textSecondary,
+      fontSize: 12,
+  }
 });
