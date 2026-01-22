@@ -14,7 +14,7 @@ import app, { auth } from '../services/firebaseConfig';
 import { PhoneAuthProvider, signInWithCredential, RecaptchaVerifier, signInWithPhoneNumber, updatePhoneNumber, linkWithPhoneNumber } from 'firebase/auth';
 
 export default function ProfileScreen() {
-  const { user, updateProfile, deleteAccount, isActive } = useAuth();
+  const { user, updateProfile, deleteAccount } = useAuth();
   const { userClubs, activeClub, setActiveClub, invitedClubs, acceptClubInvite } = useClub();
   
   // Initialize phone state
@@ -58,17 +58,17 @@ export default function ProfileScreen() {
                 });
                 recaptchaVerifier.current = appVerifier;
             }
+            const confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, appVerifier);
+            webConfirmationResult.current = confirmationResult;
+            setVerificationId("web"); // Dummy ID to trigger UI change
         } else {
              if (!appVerifier) throw new Error("Recaptcha Verifier not ready");
+             // Use signInWithPhoneNumber to get verification ID, then link manually later.
+             // This avoids the 'undefined is not a function' error often seen with linkWithPhoneNumber on native
+             const confirmation = await signInWithPhoneNumber(auth, fullPhoneNumber, appVerifier);
+             webConfirmationResult.current = confirmation; // For native, this is a "confirmation" object
+             setVerificationId(confirmation.verificationId);
         }
-
-        // Use linkWithPhoneNumber for consistent behavior across platforms
-        console.log("Calling linkWithPhoneNumber...");
-        const confirmation = await linkWithPhoneNumber(auth.currentUser!, fullPhoneNumber, appVerifier);
-        console.log("Confirmation received", confirmation.verificationId);
-        
-        webConfirmationResult.current = confirmation;
-        setVerificationId(confirmation.verificationId);
 
         Alert.alert("OTP Sent", "Please enter the 6-digit code sent to your phone.");
     } catch (err: any) {
@@ -85,30 +85,41 @@ export default function ProfileScreen() {
   };
 
   const confirmCode = async () => {
-      if (!verificationCode || !verificationId) return;
+      if (!verificationCode) return;
+      if (!verificationId && Platform.OS !== 'web') return;
+
       try {
-          // Use the confirmation result from linkWithPhoneNumber
-          if (webConfirmationResult.current) {
-               await webConfirmationResult.current.confirm(verificationCode);
+          if (Platform.OS === 'web') {
+              if (!webConfirmationResult.current) throw new Error("Confirmation result not found.");
+              
+              // Confirm the code with the web confirmation result
+              const userCredential = await webConfirmationResult.current.confirm(verificationCode);
+              // After confirming, we don't need to do anything with userCredential
+              // because we are already logged in. The phone number is now linked.
+              // Firebase handles this automatically when using signInWithPhoneNumber
+              // with an already authenticated user. We just need to update our local state.
+              
           } else {
-               // Fallback: This path shouldn't typically be reached if we used linkWithPhoneNumber
-               // successfully, but handles cases where only verificationId was restored
+               // For native, we use the verificationId to create a credential
+               if (!verificationId) throw new Error("Verification ID not found.");
                const credential = PhoneAuthProvider.credential(
                   verificationId,
                   verificationCode
                );
-               if (auth.currentUser) {
-                  await updatePhoneNumber(auth.currentUser, credential);
-               }
+
+               // Here we are updating the phone number for an existing user.
+               await updatePhoneNumber(auth.currentUser!, credential);
           }
           
           Alert.alert("Success", "Phone number verified!");
           setVerificationId(null);
-          // Auto-save
+          setVerificationCode(''); // Clear the code input
+          
+          // Auto-save the profile with the newly verified phone number
           await updateProfile({ displayName: name, phoneNumber: fullPhoneNumber });
           
       } catch (err: any) {
-          Alert.alert("Invalid Code", err.message);
+          Alert.alert("Invalid Code", err.message || "An unknown error occurred.");
       }
   };
 

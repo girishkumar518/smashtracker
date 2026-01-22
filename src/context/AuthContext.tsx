@@ -192,10 +192,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser({ ...user, ...data });
       // Firestore update
       try {
-          // Only update provided fields
-          await updateDoc(doc(db, 'users', user.id), data);
-      } catch (e) {
+          // Use setDoc with merge: true to ensure document is created if it doesn't exist
+          await setDoc(doc(db, 'users', user.id), data, { merge: true });
+      } catch (e: any) {
           console.error("Profile Update Error", e);
+          alert("Failed to save profile changes: " + e.message);
       }
     }
   };
