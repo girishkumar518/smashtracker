@@ -1,18 +1,18 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, Alert, TouchableWithoutFeedback, Keyboard, ScrollView, StatusBar, SafeAreaView, TouchableOpacity, Button as NativeButton, Platform, Linking } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet, TextInput, Alert, TouchableWithoutFeedback, Keyboard, ScrollView, StatusBar, TouchableOpacity, Platform, Linking } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useClub } from '../context/ClubContext';
 import Button from '../components/Button';
-import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme/theme';
 import { Ionicons } from '@expo/vector-icons';
-import FirebaseRecaptcha from '../components/FirebaseRecaptcha';
 import CountryCodePicker from '../components/CountryCodePicker';
 import { parsePhoneNumber } from '../constants/CountryCodes';
-import app, { auth } from '../services/firebaseConfig';
-import { PhoneAuthProvider, signInWithCredential, RecaptchaVerifier, signInWithPhoneNumber, updatePhoneNumber, linkWithPhoneNumber } from 'firebase/auth';
+import { db } from '../services/firebaseConfig';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import Constants from 'expo-constants';
+import { Club } from '../models/types';
 
 // Safely get version
 const appVersion = Constants?.expoConfig?.version || Constants?.manifest2?.extra?.expoClient?.version || '1.0.0';
@@ -28,109 +28,24 @@ export default function ProfileScreen() {
       console.log("Invited Clubs:", invitedClubs?.length);
       console.log("App Version check:", {
           expoConfig: Constants.expoConfig?.version,
-          manifest2: Constants.manifest2?.extra?.expoClient?.version,
           fallback: '1.0.0'
       });
   }, []);
   
-  // Initialize phone state
+  // Initialize state
   const initialPhoneData = parsePhoneNumber(user?.phoneNumber);
   const [name, setName] = useState(user?.displayName || '');
   const [countryCode, setCountryCode] = useState(initialPhoneData.code);
   const [phone, setPhone] = useState(initialPhoneData.number);
-  
-  const [verificationId, setVerificationId] = useState<string | null>(null);
-  const [verificationCode, setVerificationCode] = useState('');
   const [loading, setLoading] = useState(false);
+  
   const navigation = useNavigation();
   const { theme, isDark } = useTheme();
-  
-  const recaptchaVerifier = useRef<any>(null);
-  const webConfirmationResult = useRef<any>(null);
 
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   const fullPhoneNumber = `${countryCode}${phone}`;
   const isPhoneChanged = !user?.phoneNumber || user.phoneNumber !== fullPhoneNumber;
-
-  const sendVerification = async () => {
-    if (!phone || phone.length < 5) {
-        Alert.alert("Invalid Phone", "Please enter a valid phone number.");
-        return;
-    }
-    
-    // Check if phone matches current user (to avoid re-verifying own number)
-    if (!isPhoneChanged) return;
-
-    try {
-        console.log("Starting verification for:", fullPhoneNumber);
-        
-        let appVerifier = recaptchaVerifier.current;
-
-        if (Platform.OS === 'web') {
-            if (!appVerifier) {
-                appVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-                   'size': 'invisible',
-                });
-                recaptchaVerifier.current = appVerifier;
-            }
-            const confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, appVerifier);
-            webConfirmationResult.current = confirmationResult;
-            setVerificationId("web"); // Dummy ID to trigger UI change
-        } else {
-             if (!appVerifier) throw new Error("Recaptcha Verifier not ready");
-             // Use signInWithPhoneNumber to get verification ID, then link manually later.
-             // This avoids the 'undefined is not a function' error often seen with linkWithPhoneNumber on native
-             const confirmation = await signInWithPhoneNumber(auth, fullPhoneNumber, appVerifier);
-             webConfirmationResult.current = confirmation; // For native, this is a "confirmation" object
-             setVerificationId(confirmation.verificationId);
-        }
-
-        Alert.alert("OTP Sent", "Please enter the 6-digit code sent to your phone.");
-    } catch (err: any) {
-        console.error("Verification Error:", err);
-        Alert.alert("Error", `Failed to send OTP:\n${err.message}\n${err.stack || ''}`);
-    }
-  };
-
-  const confirmCode = async () => {
-      if (!verificationCode) return;
-      if (!verificationId && Platform.OS !== 'web') return;
-
-      try {
-          if (Platform.OS === 'web') {
-              if (!webConfirmationResult.current) throw new Error("Confirmation result not found.");
-              
-              // Confirm the code with the web confirmation result
-              const userCredential = await webConfirmationResult.current.confirm(verificationCode);
-              // After confirming, we don't need to do anything with userCredential
-              // because we are already logged in. The phone number is now linked.
-              // Firebase handles this automatically when using signInWithPhoneNumber
-              // with an already authenticated user. We just need to update our local state.
-              
-          } else {
-               // For native, we use the verificationId to create a credential
-               if (!verificationId) throw new Error("Verification ID not found.");
-               const credential = PhoneAuthProvider.credential(
-                  verificationId,
-                  verificationCode
-               );
-
-               // Here we are updating the phone number for an existing user.
-               await updatePhoneNumber(auth.currentUser!, credential);
-          }
-          
-          Alert.alert("Success", "Phone number verified!");
-          setVerificationId(null);
-          setVerificationCode(''); // Clear the code input
-          
-          // Auto-save the profile with the newly verified phone number
-          await updateProfile({ displayName: name, phoneNumber: fullPhoneNumber });
-          
-      } catch (err: any) {
-          Alert.alert("Invalid Code", err.message || "An unknown error occurred.");
-      }
-  };
 
   const handleUpdate = async () => {
     if (!name.trim()) {
@@ -138,25 +53,40 @@ export default function ProfileScreen() {
       return;
     }
 
-    // Prevent saving unverified phone numbers
-    if (isPhoneChanged) {
-        Alert.alert(
-            "Verification Required", 
-            "You have entered a new phone number but haven't verified it yet.\n\nPlease tap 'Send OTP' to verify the new number, or revert to your old number to save other changes."
-        );
-        return;
-    }
-
     setLoading(true);
-    await updateProfile({ displayName: name, phoneNumber: fullPhoneNumber });
-    setLoading(false);
-    
-    Alert.alert('Success', 'Profile updated!', [
-      { text: 'OK', onPress: () => navigation.goBack() }
-    ]);
+
+    try {
+        // If phone changed, check duplicates in Firestore (Manual Uniqueness Check)
+        if (isPhoneChanged && phone.length > 5) {
+             const usersRef = collection(db, 'users');
+             const q = query(usersRef, where("phoneNumber", "==", fullPhoneNumber));
+             const snapshot = await getDocs(q);
+             
+             if (!snapshot.empty) {
+                 // Check if the found user is NOT the current user
+                 const otherUser = snapshot.docs.some(doc => doc.id !== user?.id);
+                 if (otherUser) {
+                     setLoading(false);
+                     Alert.alert("Error", "This phone number is already linked to another account.");
+                     return;
+                 }
+             }
+        }
+
+        await updateProfile({ displayName: name, phoneNumber: fullPhoneNumber });
+        setLoading(false);
+        
+        Alert.alert('Success', 'Profile updated!', [
+          { text: 'OK', onPress: () => navigation.goBack() }
+        ]);
+    } catch (e: any) {
+        setLoading(false);
+        console.error("Update Error:", e);
+        Alert.alert("Error", e.message || "Failed to update profile");
+    }
   };
 
-  const handleSwitchClub = (club: any) => {
+  const handleSwitchClub = (club: Club) => {
       setActiveClub(club);
       Alert.alert('Club Switched', `You are now viewing ${club.name}`, [
           { text: 'Go to Home', onPress: () => navigation.navigate('Home' as never) }
@@ -300,7 +230,6 @@ export default function ProfileScreen() {
                   <CountryCodePicker 
                      selectedCode={countryCode} 
                      onSelect={setCountryCode}
-                     disabled={!!verificationId}
                   />
                   <TextInput
                     style={[styles.input, {flex: 1}]}
@@ -309,45 +238,15 @@ export default function ProfileScreen() {
                     placeholder="1234567890"
                     placeholderTextColor={theme.colors.textSecondary}
                     keyboardType="phone-pad"
-                    editable={!verificationId}
                   />
-                  {isPhoneChanged && (
-                     <Button 
-                        title={verificationId ? "Re-send" : "Verify"} 
-                        size="small" 
-                        onPress={sendVerification} 
-                     />
-                  )}
                   {!isPhoneChanged && user?.phoneNumber && (
                       <View style={{justifyContent: 'center', paddingHorizontal: 10}}>
                           <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary} />
                       </View>
                   )}
               </View>
-              {verificationId && (
-                  <View style={{marginTop: 10, flexDirection: 'row', gap: 10, alignItems: 'center'}}>
-                      <TextInput
-                        style={[styles.input, {width: 120, textAlign: 'center'}]}
-                        value={verificationCode}
-                        onChangeText={setVerificationCode}
-                        placeholder="123456"
-                        keyboardType="number-pad"
-                        maxLength={6}
-                      />
-                      <Button title="Confirm" size="small" onPress={confirmCode} />
-                  </View>
-              )}
               <Text style={styles.helper}>Used for friends to find you.</Text>
             </View>
-
-            {Platform.OS !== 'web' ? (
-                <FirebaseRecaptcha
-                    ref={recaptchaVerifier}
-                    firebaseConfig={app.options}
-                />
-            ) : (
-                <View nativeID="recaptcha-container" />
-            )}
 
             <View style={styles.formGroup}>
               <Text style={styles.label}>Email Address</Text>
@@ -387,10 +286,9 @@ export default function ProfileScreen() {
                   style={styles.feedbackBtn}
                   textStyle={{ color: theme.colors.primary }}
                 />
-                <Text style={styles.versionText}>
-                    Version {appVersion}
-                </Text>
+                <Text style={styles.versionText}>v{appVersion}</Text>
             </View>
+
           </View>
         </ScrollView>
       </View>
@@ -400,45 +298,47 @@ export default function ProfileScreen() {
 
 const createStyles = (theme: Theme) => StyleSheet.create({
   container: {
-    padding: 24,
+    padding: 20,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   sectionTitle: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: theme.colors.textPrimary,
-      marginBottom: 12,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: theme.colors.textPrimary,
   },
   clubItem: {
       flexDirection: 'row',
-      alignItems: 'center',
       justifyContent: 'space-between',
-      padding: 12,
+      alignItems: 'center',
       backgroundColor: theme.colors.surface,
+      padding: 12,
       borderRadius: 8,
       marginBottom: 8,
       borderWidth: 1,
-      borderColor: theme.colors.surfaceHighlight,
+      borderColor: theme.colors.background, // Default border transparent-ish
   },
   activeClubItem: {
       borderColor: theme.colors.primary,
-      backgroundColor: theme.colors.primary + '10',
-  },
-  clubInitial: {
-      width: 32, height: 32, borderRadius: 16,
-      justifyContent: 'center', alignItems: 'center',
+      backgroundColor: theme.colors.surfaceHighlight,
   },
   clubName: {
+      fontSize: 16,
       fontWeight: '600',
-      fontSize: 14,
+  },
+  clubInitial: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
   },
   smallBtn: {
-      flex: 1,
       flexDirection: 'row',
       backgroundColor: theme.colors.primary,
-      paddingVertical: 10,
+      paddingVertical: 8,
       paddingHorizontal: 12,
       borderRadius: 6,
       alignItems: 'center',
