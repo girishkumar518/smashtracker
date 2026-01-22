@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, Alert, TouchableWithoutFeedback, Keyboard, ScrollView, StatusBar, SafeAreaView, TouchableOpacity, Button as NativeButton, Platform, Linking } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useClub } from '../context/ClubContext';
@@ -14,9 +14,24 @@ import app, { auth } from '../services/firebaseConfig';
 import { PhoneAuthProvider, signInWithCredential, RecaptchaVerifier, signInWithPhoneNumber, updatePhoneNumber, linkWithPhoneNumber } from 'firebase/auth';
 import Constants from 'expo-constants';
 
+// Safely get version
+const appVersion = Constants?.expoConfig?.version || Constants?.manifest2?.extra?.expoClient?.version || '1.0.0';
+
 export default function ProfileScreen() {
   const { user, updateProfile, deleteAccount } = useAuth();
   const { userClubs, activeClub, setActiveClub, invitedClubs, acceptClubInvite } = useClub();
+  
+  // Debug logging
+  useEffect(() => {
+      console.log("ProfileScreen mounted");
+      console.log("User:", user?.id);
+      console.log("Invited Clubs:", invitedClubs?.length);
+      console.log("App Version check:", {
+          expoConfig: Constants.expoConfig?.version,
+          manifest2: Constants.manifest2?.extra?.expoClient?.version,
+          fallback: '1.0.0'
+      });
+  }, []);
   
   // Initialize phone state
   const initialPhoneData = parsePhoneNumber(user?.phoneNumber);
@@ -168,6 +183,23 @@ export default function ProfileScreen() {
         }
       ]
     );
+  };
+
+  const handleFeedback = () => {
+      // Get device info for detailed feedback
+      const version = appVersion;
+      const subject = encodeURIComponent(`SmashTracker Feedback (v${version})`);
+      const body = encodeURIComponent(`\n\nApp Version: ${version}\nPlatform: ${Platform.OS}\n`);
+      
+      const url = `mailto:gksoftwareltd@gmail.com?subject=${subject}&body=${body}`;
+      
+      Linking.canOpenURL(url).then(supported => {
+          if (!supported) {
+              Alert.alert('Error', 'No email client available');
+          } else {
+              Linking.openURL(url);
+          }
+      });
   };
 
   return (
@@ -356,7 +388,7 @@ export default function ProfileScreen() {
                   textStyle={{ color: theme.colors.primary }}
                 />
                 <Text style={styles.versionText}>
-                    Version {Constants.expoConfig?.version || Constants.manifest2?.extra?.expoClient?.version || '1.0.0'}
+                    Version {appVersion}
                 </Text>
             </View>
           </View>

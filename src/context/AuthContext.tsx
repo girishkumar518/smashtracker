@@ -68,6 +68,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               const updates: any = { ...userData }; // Start with current state
               if (token) updates.pushToken = token;
               
+              // Sanitize updates to remove undefined values which Firestore hates
+              Object.keys(updates).forEach(key => updates[key] === undefined && delete updates[key]);
+
               // Always write to Firestore to ensure user exists
               await setDoc(userDocRef, updates, { merge: true });
           })().catch(e => console.error("Error saving user to Firestore:", e));
@@ -193,7 +196,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Firestore update
       try {
           // Use setDoc with merge: true to ensure document is created if it doesn't exist
-          await setDoc(doc(db, 'users', user.id), data, { merge: true });
+          const validData = { ...data };
+          Object.keys(validData).forEach(key => (validData as any)[key] === undefined && delete (validData as any)[key]);
+
+          await setDoc(doc(db, 'users', user.id), validData, { merge: true });
       } catch (e: any) {
           console.error("Profile Update Error", e);
           alert("Failed to save profile changes: " + e.message);
