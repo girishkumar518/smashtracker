@@ -66,21 +66,20 @@ export default function InviteMembersScreen() {
   const inviteContact = async (contact: Contacts.Contact) => {
       if (!activeClub) return;
       
-      const phone = contact.phoneNumbers?.[0]?.number;
-      if (!phone) {
+      const rawPhone = contact.phoneNumbers?.[0]?.number;
+      if (!rawPhone) {
           shareGeneric("Join my club!"); // Fallback if no phone
           return;
       }
 
-      // Check if user exists in App first
-      // Note: This relies on exact string match of phone number in Firestore. 
-      // Ideally both should be E.164 normalized. 
-      // We try the raw phone first.
+      // Clean phone for better matching/linking
+      // Keep + if present, remove spaces, dashes, parens
+      const cleanedPhone = rawPhone.replace(/[^\d+]/g, '');
+
       try {
-          // Normalize both potential formats: remove all non-digit chars
-          // This assumes we stored normalized numbers or have a flexible query mechanism (we don't yet)
-          // For this feature, we'll try the raw number.
-          const inviteSent = await sendClubInvite(phone);
+          // Attempt to find user and send push notification
+          const inviteSent = await sendClubInvite(cleanedPhone);
+          
           if (inviteSent) {
               Alert.alert('Invite Sent', `An in-app invite and push notification has been sent to ${contact.name}!`);
               return;
@@ -89,15 +88,14 @@ export default function InviteMembersScreen() {
           console.log("Error sending app invite, falling back to SMS", e);
       }
 
-      // Use club specific invite link logic if available, for now just code
-      // A reliable deep link scheme isn't set up yet, so using the code is safer.
+      // If not found in app, invite via SMS / WhatsApp
       const message = `Hey, join my badminton club "${activeClub.name}" on SmashTracker! \n\nClub Code: ${activeClub.inviteCode} \n\nDownload the app and join!`;
 
-      if (phone) {
+      if (cleanedPhone) {
           const isAvailable = await SMS.isAvailableAsync();
           if (isAvailable) {
               const { result } = await SMS.sendSMSAsync(
-                  [phone],
+                  [cleanedPhone],
                   message
               );
               return; // Success or cancelled
@@ -106,14 +104,11 @@ export default function InviteMembersScreen() {
 
       // Fallback: WhatsApp or Share
       // Try WhatsApp first if we have a phone number? 
-      // Actually standard Share is probably best fallback if SMS fails or no phone number specific
-      // But user specifically mentioned WhatsApp/Text.
-      
-      if (phone) {
+      if (cleanedPhone) {
            // Try opening whatsapp
-           // clean phone number
-           let cleaned = phone.replace(/[^\d]/g, '');
-           const url = `whatsapp://send?phone=${cleaned}&text=${encodeURIComponent(message)}`;
+           // clean phone number fully for URL schemes (usually just digits)
+           const whatsappPhone = cleanedPhone.replace(/[^\d]/g, ''); 
+           const url = `whatsapp://send?phone=${whatsappPhone}&text=${encodeURIComponent(message)}`;
            
            const supported = await Linking.canOpenURL(url);
            if (supported) {

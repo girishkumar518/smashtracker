@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, Switch, Modal, FlatList, TouchableOpacity, ScrollView, Alert, StatusBar, TextInput } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../components/Button';
 import { useNavigation } from '@react-navigation/native';
 import { useClub } from '../context/ClubContext';
@@ -275,40 +276,49 @@ export default function MatchSetupScreen() {
 
         {/* Player Selection Modal */}
         <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
-          <View style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Player</Text>
-              <Button title="Close" variant="outline" onPress={() => setModalVisible(false)} style={{ paddingVertical: 8, paddingHorizontal: 16 }} />
-            </View>
-            
-            <View style={{padding: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.border}}>
-                {!showGuestInput ? (
-                    <TouchableOpacity style={styles.richModeBtn} onPress={() => setShowGuestInput(true)}>
-                        <MaterialCommunityIcons name="account-plus" size={24} color={theme.colors.primary} />
-                        <Text style={[styles.richModeText, {color: theme.colors.primary}]}>Add Guest Player</Text>
-                    </TouchableOpacity>
-                ) : (
-                    <View style={{flexDirection: 'row', gap: 8}}>
-                        <TextInput 
-                            style={[
-                                styles.richModeBtn, 
-                                { flex: 1, borderWidth: 1, borderColor: theme.colors.border, paddingHorizontal: 12, backgroundColor: theme.colors.surface }
-                            ]}
-                            placeholder="Guest Name"
-                            value={guestName}
-                            onChangeText={setGuestName}
-                            autoFocus
-                        />
-                        <Button title="Add" onPress={addGuest} style={{minWidth: 80}} />
-                    </View>
-                )}
-            </View>
+          <SafeAreaView style={{flex: 1, backgroundColor: theme.colors.background}}>
+            <View style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}>
+                <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Select Player</Text>
+                <Button title="Close" variant="outline" onPress={() => setModalVisible(false)} style={{ paddingVertical: 8, paddingHorizontal: 16 }} />
+                </View>
+                
+                <View style={{padding: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.border}}>
+                    {!showGuestInput ? (
+                        <TouchableOpacity style={styles.richModeBtn} onPress={() => setShowGuestInput(true)}>
+                            <MaterialCommunityIcons name="account-plus" size={24} color={theme.colors.primary} />
+                            <Text style={[styles.richModeText, {color: theme.colors.primary}]}>Add Guest Player</Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <View style={{flexDirection: 'row', gap: 8}}>
+                            <TextInput 
+                                style={[
+                                    styles.richModeBtn, 
+                                    { 
+                                        flex: 1, 
+                                        borderWidth: 1, 
+                                        borderColor: theme.colors.border, 
+                                        paddingHorizontal: 12, 
+                                        backgroundColor: theme.colors.surface,
+                                        color: theme.colors.textPrimary 
+                                    }
+                                ]}
+                                placeholder="Guest Name"
+                                placeholderTextColor={theme.colors.textSecondary}
+                                value={guestName}
+                                onChangeText={setGuestName}
+                                autoFocus
+                            />
+                            <Button title="Add" onPress={addGuest} style={{minWidth: 80}} />
+                        </View>
+                    )}
+                </View>
 
-            <FlatList
-              data={allPlayers} // Combined list
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={{ paddingBottom: 40 }}
-              renderItem={({ item }) => {
+                <FlatList
+                data={allPlayers} // Combined list
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={{ paddingBottom: 40 }}
+                renderItem={({ item }) => {
                 const isSelected = [p1?.id, p2?.id, p3?.id, p4?.id].includes(item.id);
                 const isGuest = item.id.startsWith('guest_');
                 return (
@@ -336,6 +346,7 @@ export default function MatchSetupScreen() {
               }}
             />
           </View>
+          </SafeAreaView>
         </Modal>
       </ScrollView>
     </View>
@@ -402,7 +413,7 @@ const createStyles = (theme: Theme) => StyleSheet.create({
   },
   formatBoxActive: {
       borderColor: theme.colors.primary,
-      backgroundColor: theme.isDark ? '#1a202c' : '#F0FFF4',
+      backgroundColor: theme.type === 'dark' ? '#1a202c' : '#F0FFF4',
   },
   formatText: {
       marginTop: 8,

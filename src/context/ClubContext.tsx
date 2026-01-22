@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, ReactNode, useMemo, useEffe
 import { Club, User, Match, SeededUser } from '../models/types';
 import { useAuth } from './AuthContext';
 import { db } from '../services/firebaseConfig';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { 
   collection, 
   addDoc, 
@@ -444,14 +445,27 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
   const sendClubInvite = async (phoneNumber: string): Promise<boolean> => {
       if (!user || !activeClub) return false;
 
-      // 1. Normalize phone number (simple check)
-      // Ideally should be flexible, but let's assume exact match for now or basic cleaning
-      // It's better to store normalized numbers in DB on profile update.
-      // For now, let's just query.
-      
+      // Normalize input: remove all non-digits except '+'
+      // e.g. "(555) 123-4567" -> "5551234567"
+      // e.g. "+1-555-123-4567" -> "+15551234567"
+      const cleaned = phoneNumber.replace(/[^\d+]/g, '');
+
       try {
-          const q = query(collection(db, 'users'), where('phoneNumber', '==', phoneNumber));
-          const snapshot = await getDocs(q);
+          // Try finding the user with multiple variations
+          let snapshot = await getDocs(query(collection(db, 'users'), where('phoneNumber', '==', cleaned)));
+
+          // If not found and doesn't start with +, try prepending +1 (assuming US/Canada default)
+          if (snapshot.empty && !cleaned.startsWith('+')) {
+              // Try with +Code (e.g. +1)
+              const withUS = '+1' + cleaned;
+              snapshot = await getDocs(query(collection(db, 'users'), where('phoneNumber', '==', withUS)));
+              
+              // Also try just + prefix? (e.g. +91...)
+              if (snapshot.empty) {
+                  const withPlus = '+' + cleaned;
+                  snapshot = await getDocs(query(collection(db, 'users'), where('phoneNumber', '==', withPlus)));
+              }
+          }
 
           if (snapshot.empty) return false;
 
@@ -468,7 +482,8 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
               await sendPushNotification(
                   targetUser.pushToken,
                   "Club Invitation",
-                  `${user.displayName} invited you to join ${activeClub.name}`
+                  `${user.displayName} invited you to join ${activeClub.name}`,
+                  { clubId: activeClub.id }
               );
           }
           
@@ -561,51 +576,25 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
 
   const updateGuestToUser = async (guestId: string, realUserId: string) => {
       if (!activeClub) return;
-      console.log(`Converting Guest ${guestId} to User ${realUserId}`);
+      console.log(`Converting Guest ${guestId} to User ${realUserId} via Cloud Function`);
       
       try {
-          // Find only matches where the guest played (optimization)
-          // Note: This query requires a Firestore Composite Index. 
-          // If it fails, check your console logs for a link to create the index.
-          const q = query(
-              collection(db, 'matches'), 
-              where('clubId', '==', activeClub.id),
-              // @ts-ignore
-              or(
-                  where('team1', 'array-contains', guestId),
-                  where('team2', 'array-contains', guestId)
-              )
-          );
-          const snapshot = await getDocs(q);
-
-          const updates: Promise<void>[] = [];
-
-          snapshot.docs.forEach(docSnap => {
-              const data = docSnap.data() as Match;
-              let needsUpdate = false;
-              
-              // Helper to replace ID in array
-              const replaceId = (arr: string[]) => arr.map(id => id === guestId ? realUserId : id);
-
-              const newTeam1 = replaceId(data.team1);
-              const newTeam2 = replaceId(data.team2);
-
-              if (JSON.stringify(newTeam1) !== JSON.stringify(data.team1)) needsUpdate = true;
-              if (JSON.stringify(newTeam2) !== JSON.stringify(data.team2)) needsUpdate = true;
-              
-              if (needsUpdate) {
-                  updates.push(updateDoc(doc(db, 'matches', docSnap.id), {
-                      team1: newTeam1,
-                      team2: newTeam2
-                  }));
-              }
+          const functions = getFunctions(undefined, 'us-central1'); // Region defaults to us-central1
+          // NOTE: The function name must match exactly what you deploy in python (usually snake_case or camelCase depending on config)
+          // In main.py we defined it as 'merge_guest_history'.
+          const mergeGuestHistory = httpsCallable(functions, 'merge_guest_history');
+          
+          const result = await mergeGuestHistory({
+              clubId: activeClub.id,
+              guestId: guestId,
+              realUserId: realUserId
           });
-
-          await Promise.all(updates);
-          console.log(`Updated ${updates.length} matches.`);
+          
+          console.log(`Cloud Function Result:`, result.data);
+          
       } catch (e) {
-          console.error("Error batch updating guest:", e);
-          throw e;
+          console.error("Error calling mergeGuestHistory cloud function:", e);
+          throw e; // Rethrow to show alert in UI
       }
   };
 

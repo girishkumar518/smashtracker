@@ -275,8 +275,9 @@ export default function ClubManagementScreen() {
                 </View>
               </TouchableOpacity>
 
-              <View style={{ marginTop: 24 }}>
-                 <Button title="Share Invite" variant="outline" onPress={shareInviteCode} />
+              <View style={{ marginTop: 24, gap: 12 }}>
+                 <Button title="Invite from Contacts" onPress={() => navigation.navigate('InviteMembers' as never)} />
+                 <Button title="Share Code" variant="outline" onPress={shareInviteCode} />
               </View>
           </Card>
 
