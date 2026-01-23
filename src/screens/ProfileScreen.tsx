@@ -217,7 +217,7 @@ export default function ProfileScreen() {
             <View style={styles.divider} />
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Display Name (First & Last)</Text>
+              <Text style={styles.label}>Display Name</Text>
               <TextInput
                 style={styles.input}
                 value={name}
