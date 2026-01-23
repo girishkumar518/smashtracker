@@ -57,13 +57,16 @@ export default function JoinClubScreen() {
 
           <TextInput
             style={styles.input}
-            placeholder="Enter Invite Code (e.g. AB12CD)"
+            placeholder="INVITE CODE"
             placeholderTextColor={theme.colors.textSecondary}
             value={code}
             onChangeText={(text) => setCode(text.toUpperCase())}
             autoCapitalize="characters"
             maxLength={8}
           />
+          <Text style={{textAlign: 'center', color: theme.colors.textSecondary, marginBottom: 20, marginTop: -15}}>
+              e.g. AB12CD
+          </Text>
 
           <Button 
             title={loading ? "Joining..." : "Join Club"} 

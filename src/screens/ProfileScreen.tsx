@@ -133,10 +133,14 @@ export default function ProfileScreen() {
   };
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
-        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
+      <ScrollView 
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }} 
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={styles.container}>
             {/* Club Invites Section */}
             {invitedClubs && invitedClubs.length > 0 && (
@@ -290,9 +294,9 @@ export default function ProfileScreen() {
             </View>
 
           </View>
-        </ScrollView>
-      </View>
-    </TouchableWithoutFeedback>
+        </TouchableWithoutFeedback>
+      </ScrollView>
+    </View>
   );
 }
 
