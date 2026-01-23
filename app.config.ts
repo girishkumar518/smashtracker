@@ -5,7 +5,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: "SmashTracker",
     slug: "smashtracker",
-    version: "2.0.2",
+    version: "2.0.3",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -17,7 +17,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     ios: {
       "supportsTablet": true,
-      "bundleIdentifier": "com.gk.smashtracker",
+      "bundleIdentifier": "com.badminton.smashtracker",
       "buildNumber": "1"
     },
     android: {
@@ -25,8 +25,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.gk.smashtracker",
-      "versionCode": 3,
+      "package": "com.badminton.smashtracker",
+      "versionCode": 4,
       // Dynamic Google Services File
       "googleServicesFile": process.env.GOOGLE_SERVICES_FILE || "./google-services.json",
       "edgeToEdgeEnabled": true,
