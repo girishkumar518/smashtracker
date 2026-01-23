@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 import { initializeApp, getApp, getApps } from "firebase/app";
 import { initializeAuth, getReactNativePersistence, getAuth } from "firebase/auth";
 import { initializeFirestore, getFirestore } from "firebase/firestore";
+import { getFunctions } from "firebase/functions";
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 
 // Used from google-services.json or Environment Variables (EAS Build / .env)
@@ -60,5 +61,8 @@ if (Platform.OS === 'web') {
 
 
 export { db };
+
+const functions = getFunctions(app);
+export { functions };
 
 export default app;

@@ -21,7 +21,8 @@ export default function ClubManagementScreen() {
     leaveClub,
     guests,
     updateGuestToUser,
-    addGuestPlayer
+    addGuestPlayer,
+    removeGuestPlayer
   } = useClub();
   const { user } = useAuth();
   const navigation = useNavigation();
@@ -186,6 +187,28 @@ export default function ClubManagementScreen() {
       );
   };
 
+  const handleDeleteGuest = (guest: any) => {
+    Alert.alert(
+        "Delete Guest", 
+        `Are you sure you want to delete "${guest.displayName}"?\n\nThis will NOT delete their match history from matches, but they will be removed from your player list.`,
+        [
+            { text: "Cancel", style: "cancel" },
+            { 
+                text: "Delete", 
+                style: "destructive", 
+                onPress: async () => {
+                    try {
+                        await removeGuestPlayer(guest.id);
+                        Alert.alert("Success", "Guest removed.");
+                    } catch (e: any) {
+                        Alert.alert("Error", "Failed to remove guest.");
+                    }
+                }
+            }
+        ]
+    );
+  };
+
   const renderGuest = ({ item }: { item: any }) => (
     <View style={styles.memberRow}>
        <View style={[styles.memberAvatar, { backgroundColor: '#ED8936' }]}>
@@ -200,17 +223,27 @@ export default function ClubManagementScreen() {
          )}
          <Text style={styles.memberEmail}>{item.email || 'No Email'}</Text>
        </View>
-       <Button 
-            title="Link to Member" 
-            size="small" 
-            variant="outline"
-            style={{height: 32, paddingVertical: 0}}
-            textStyle={{fontSize: 12}}
-            onPress={() => {
-                setSelectedGuest(item);
-                setMergeModalVisible(true);
-            }} 
-       />
+       <View style={{flexDirection: 'row', alignItems: 'center'}}>
+           <Button 
+                title="Link" 
+                size="small" 
+                variant="outline"
+                style={{height: 32, paddingVertical: 0, marginRight: 8}}
+                textStyle={{fontSize: 12}}
+                onPress={() => {
+                    setSelectedGuest(item);
+                    setMergeModalVisible(true);
+                }} 
+           />
+           <Button 
+                title="✕" 
+                size="small" 
+                variant="danger"
+                style={{height: 32, width: 32, paddingHorizontal: 0, paddingVertical: 0, alignItems: 'center', justifyContent: 'center'}}
+                textStyle={{fontSize: 14, fontWeight: 'bold'}}
+                onPress={() => handleDeleteGuest(item)} 
+           />
+       </View>
     </View>
   );
 

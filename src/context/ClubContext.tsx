@@ -47,6 +47,7 @@ interface ClubContextType {
   setActiveClub: (club: Club) => void;
   updateGuestToUser: (guestId: string, realUserId: string) => Promise<void>;
   addGuestPlayer: (name: string) => Promise<void>;
+  removeGuestPlayer: (guestId: string) => Promise<void>;
   guests: User[];
 }
 
@@ -616,6 +617,24 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
       }
   };
 
+  const removeGuestPlayer = async (guestId: string) => {
+      if (!activeClub) return;
+      
+      // Need exact object reference to remove from array, but we only have ID
+      // So we filter the current guests from activeClub and update the whole array
+      const currentGuests = activeClub.guestPlayers || [];
+      const newGuests = currentGuests.filter(g => g.id !== guestId);
+      
+      try {
+        await updateDoc(doc(db, 'clubs', activeClub.id), {
+            guestPlayers: newGuests
+        });
+      } catch (e) {
+        console.error("Error removing guest player:", e);
+        throw e;
+      }
+  };
+
   return (
     <ClubContext.Provider value={{ 
         activeClub, 
@@ -641,6 +660,7 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
         setActiveClub,
         updateGuestToUser,
         addGuestPlayer,
+        removeGuestPlayer,
         guests
     }}>
       {children}

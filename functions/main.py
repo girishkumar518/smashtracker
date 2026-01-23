@@ -84,6 +84,26 @@ def merge_guest_history(req: https_fn.CallableRequest) -> dict:
             batch.commit()
 
         print(f"Successfully merged {update_count} matches.")
+
+        # 4. Remove guest from Club's guestPlayers list
+        try:
+            club_ref = db.collection("clubs").document(club_id)
+            club_snap = club_ref.get()
+            if club_snap.exists:
+                club_data = club_snap.to_dict()
+                guests = club_data.get("guestPlayers", [])
+                
+                # Filter out the merged guest
+                new_guests = [g for g in guests if g.get("id") != guest_id]
+                
+                if len(guests) != len(new_guests):
+                    club_ref.update({"guestPlayers": new_guests})
+                    print(f"Removed guest {guest_id} from club {club_id}")
+        except Exception as e:
+            print(f"Error removing guest record: {e}")
+            # Don't fail the whole function if this part fails, as data is already merged
+            pass
+
         return {"success": True, "updatedMatches": update_count}
 
     except Exception as e:
