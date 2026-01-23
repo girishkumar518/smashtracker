@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, Share, Alert, TouchableOpacity, ScrollView, Platform, StatusBar, Modal, TextInput } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
+import { Ionicons } from '@expo/vector-icons';
 import { useClub } from '../context/ClubContext';
 import { useAuth } from '../context/AuthContext'; 
 import Card from '../components/Card';
@@ -22,7 +23,9 @@ export default function ClubManagementScreen() {
     guests,
     updateGuestToUser,
     addGuestPlayer,
-    removeGuestPlayer
+    removeGuestPlayer,
+    updateClubName,
+    toggleAdminRole
   } = useClub();
   const { user } = useAuth();
   const navigation = useNavigation();
@@ -36,6 +39,10 @@ export default function ClubManagementScreen() {
   // Add Guest State
   const [addGuestModalVisible, setAddGuestModalVisible] = useState(false);
   const [newGuestName, setNewGuestName] = useState('');
+
+  // Edit Club Name State
+  const [editNameModalVisible, setEditNameModalVisible] = useState(false);
+  const [editingClubName, setEditingClubName] = useState('');
 
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -247,10 +254,54 @@ export default function ClubManagementScreen() {
     </View>
   );
 
+  const handleToggleAdmin = (member: any) => {
+    if (!isOwner) return;
+    if (member.id === activeClub?.ownerId) return;
+
+    const isCurrentAdmin = member.role === 'admin' || activeClub?.members.find(m => m.userId === member.id)?.role === 'admin';
+    const action = isCurrentAdmin ? "Remove Admin Role" : "Make Admin";
+
+    Alert.alert(
+      "Manage Role",
+      `Change role for ${member.displayName}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: action, 
+          style: "default", 
+          onPress: async () => {
+              try {
+                  await toggleAdminRole(member.id);
+                  Alert.alert("Success", `User is now ${isCurrentAdmin ? 'a Player' : 'an Admin'}`);
+              } catch (e: any) {
+                  Alert.alert("Error", e.message);
+              }
+          } 
+        }
+      ]
+    );
+  };
+
   const renderMember = ({ item }: { item: any }) => {
     const roleBadge = getRoleLabel(item.id);
     return (
-    <TouchableOpacity style={styles.memberRow} onPress={() => isAdmin && handleRemoveMember(item.id, item.displayName)}>
+    <TouchableOpacity 
+       style={styles.memberRow} 
+       onPress={() => {
+           if (isOwner && item.id !== activeClub.ownerId) {
+               // Owner gets specific role management menu
+               handleToggleAdmin(item);
+           } else if (isAdmin && !isOwner) {
+               // Regular admin just sees remove option (cannot remove other admins or owner)
+               const targetIsAdmin = activeClub?.members.find(m => m.userId === item.id)?.role === 'admin';
+               const targetIsOwner = activeClub?.ownerId === item.id;
+               
+               if (!targetIsAdmin && !targetIsOwner) {
+                   handleRemoveMember(item.id, item.displayName);
+               }
+           }
+       }}
+    >
        <View style={styles.memberAvatar}>
           <Text style={styles.avatarText}>{item.displayName ? item.displayName.charAt(0) : '?'}</Text>
        </View>
@@ -293,7 +344,20 @@ export default function ClubManagementScreen() {
     </View>
   );
 
-  return (
+  return (View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
+                  <Text style={styles.clubName}>{activeClub.name}</Text>
+                  {isOwner && (
+                      <TouchableOpacity 
+                        style={{marginLeft: 10, padding: 4}}
+                        onPress={() => {
+                            setEditingClubName(activeClub.name);
+                            setEditNameModalVisible(true);
+                        }}
+                      > 
+                          <Ionicons name="pencil" size={20} color={theme.colors.primary} />
+                      </TouchableOpacity>
+                  )}
+              </View
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
        <ScrollView style={styles.container}>
@@ -519,6 +583,46 @@ export default function ClubManagementScreen() {
                             try {
                                 await addGuestPlayer(newGuestName);
                                 setAddGuestModalVisible(false);
+      {/* Edit Name Modal */}
+      <Modal visible={editNameModalVisible} transparent animationType="fade" onRequestClose={() => setEditNameModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+            <View style={[styles.dialogContainer, { backgroundColor: theme.colors.surface }]}>
+                <Text style={styles.dialogTitle}>Rename Club</Text>
+                
+                <TextInput
+                    style={[styles.input, { color: theme.colors.textPrimary, borderColor: theme.colors.border }]}
+                    placeholder="Club Name"
+                    placeholderTextColor={theme.colors.textSecondary}
+                    value={editingClubName}
+                    onChangeText={setEditingClubName}
+                    autoFocus
+                />
+
+                <View style={styles.dialogActions}>
+                    <Button 
+                        title="Cancel" 
+                        variant="outline" 
+                        onPress={() => setEditNameModalVisible(false)}
+                        style={{flex: 1, marginRight: 8}}
+                    />
+                    <Button 
+                        title="Save" 
+                        onPress={async () => {
+                            if(!editingClubName.trim()) return;
+                            try {
+                                await updateClubName(editingClubName);
+                                setEditNameModalVisible(false);
+                            } catch(e) {
+                                Alert.alert("Error", "Failed to update club name.");
+                            }
+                        }}
+                        style={{flex: 1}}
+                    />
+                </View>
+            </View>
+        </View>
+      </Modal>
+
                                 setNewGuestName('');
                             } catch(e) {
                                 Alert.alert("Error", "Failed to add guest.");

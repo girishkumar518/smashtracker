@@ -45,9 +45,11 @@ interface ClubContextType {
   invitedClubs: Club[]; // New
   userClubs: Club[];
   setActiveClub: (club: Club) => void;
+  updateClubName: (name: string) => Promise<void>;
   updateGuestToUser: (guestId: string, realUserId: string) => Promise<void>;
   addGuestPlayer: (name: string) => Promise<void>;
   removeGuestPlayer: (guestId: string) => Promise<void>;
+  toggleAdminRole: (userId: string) => Promise<void>;
   guests: User[];
 }
 
@@ -575,6 +577,24 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const setActiveClubHandler = (club: Club) => {
+      setActiveClub(club);
+  };
+
+  const updateClubName = async (name: string) => {
+      if (!activeClub) return;
+      try {
+          await updateDoc(doc(db, 'clubs', activeClub.id), {
+              name: name
+          });
+          // Update local state if needed, though onSnapshot updates it
+          setActiveClub(prev => prev ? { ...prev, name } : null);
+      } catch (e) {
+          console.error("Error updating club name:", e);
+          throw e;
+      }
+  };
+
   const updateGuestToUser = async (guestId: string, realUserId: string) => {
       if (!activeClub) return;
       console.log(`Converting Guest ${guestId} to User ${realUserId} via Cloud Function`);
@@ -635,6 +655,40 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
       }
   };
 
+  const toggleAdminRole = async (targetUserId: string) => {
+      if (!activeClub || !user) return;
+      
+      // Security Check: Only owners can promote/demote admins
+      if (activeClub.ownerId !== user.id) {
+          throw new Error("Only the Club Owner can manage admin roles.");
+      }
+
+      if (targetUserId === activeClub.ownerId) {
+          throw new Error("Owner role cannot be changed here.");
+      }
+
+      const currentMembers = activeClub.members || [];
+      const memberIndex = currentMembers.findIndex(m => m.userId === targetUserId);
+
+      if (memberIndex === -1) return;
+
+      const member = currentMembers[memberIndex];
+      const newRole = member.role === 'admin' ? 'player' : 'admin';
+
+      // Create new array with updated role
+      const updatedMembers = [...currentMembers];
+      updatedMembers[memberIndex] = { ...member, role: newRole };
+
+      try {
+          await updateDoc(doc(db, 'clubs', activeClub.id), {
+              members: updatedMembers
+          });
+      } catch (e) {
+          console.error("Error toggling admin role:", e);
+          throw e;
+      }
+  };
+
   return (
     <ClubContext.Provider value={{ 
         activeClub, 
@@ -658,9 +712,11 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
         deleteClub,
         userClubs,
         setActiveClub,
+        updateClubName,
         updateGuestToUser,
         addGuestPlayer,
         removeGuestPlayer,
+        toggleAdminRole,
         guests
     }}>
       {children}
