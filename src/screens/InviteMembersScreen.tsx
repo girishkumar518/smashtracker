@@ -7,6 +7,8 @@ import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme/theme';
 import { Ionicons } from '@expo/vector-icons';
 import Button from '../components/Button';
+import { db } from '../services/firebaseConfig';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 export default function InviteMembersScreen() {
   const { activeClub, sendClubInvite } = useClub();
@@ -18,6 +20,10 @@ export default function InviteMembersScreen() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [permissionGranted, setPermissionGranted] = useState(false);
+  const [registeredPhones, setRegisteredPhones] = useState<Set<string>>(new Set());
+
+  // Helper to normalize phones similarly to backend expectation
+  const cleanPhone = (raw: string) => raw.replace(/[^\d+]/g, '');
 
   useEffect(() => {
     (async () => {
@@ -50,6 +56,61 @@ export default function InviteMembersScreen() {
     })();
   }, []);
 
+  // Check registration status for displayed contacts
+  useEffect(() => {
+      if (filteredContacts.length === 0) return;
+
+      const checkBatch = async () => {
+         // Limit to first 20 for performance/quota safety on search/load
+         const subset = filteredContacts.slice(0, 20);
+         const phonesToCheck = new Set<string>();
+
+         subset.forEach(c => {
+             if (c.phoneNumbers?.[0]?.number) {
+                 const cleaned = cleanPhone(c.phoneNumbers[0].number);
+                 if (cleaned.length > 5) phonesToCheck.add(cleaned);
+             }
+         });
+
+         if (phonesToCheck.size === 0) return;
+
+         const phoneArray = Array.from(phonesToCheck);
+         // Split into chunks of 10 for Firestore 'IN' query limit
+         const chunks = [];
+         for (let i = 0; i < phoneArray.length; i += 10) {
+             chunks.push(phoneArray.slice(i, i + 10));
+         }
+
+         const foundPhones = new Set(registeredPhones);
+         let hasUpdates = false;
+
+         for (const chunk of chunks) {
+             try {
+                 const q = query(collection(db, 'users'), where('phoneNumber', 'in', chunk));
+                 const snap = await getDocs(q);
+                 
+                 snap.forEach(doc => {
+                     const p = doc.data().phoneNumber;
+                     if (p) {
+                         foundPhones.add(p);
+                         hasUpdates = true;
+                     }
+                 });
+             } catch (e) {
+                 console.log("Error checking contacts:", e);
+             }
+         }
+
+         if (hasUpdates) {
+             setRegisteredPhones(new Set(foundPhones));
+         }
+      };
+    
+      // Debounce slightly or just run
+      const timer = setTimeout(checkBatch, 500);
+      return () => clearTimeout(timer);
+  }, [filteredContacts]);
+
   const handleSearch = (text: string) => {
     setSearch(text);
     if (!text) {
@@ -73,14 +134,14 @@ export default function InviteMembersScreen() {
       }
 
       // Clean phone for better matching/linking
-      // Keep + if present, remove spaces, dashes, parens
-      const cleanedPhone = rawPhone.replace(/[^\d+]/g, '');
+      const cleanedPhone = cleanPhone(rawPhone);
 
       try {
           // Attempt to find user and send push notification
           const inviteSent = await sendClubInvite(cleanedPhone);
           
           if (inviteSent) {
+              setRegisteredPhones(prev => new Set(prev).add(cleanedPhone)); // Update cache
               Alert.alert('Invite Sent', `An in-app invite and push notification has been sent to ${contact.name}!`);
               return;
           }
@@ -129,25 +190,39 @@ export default function InviteMembersScreen() {
        Alert.alert("No phone number", "This contact doesn't have a phone number to message directly. Use the main 'Share Code' button instead.");
   };
 
-  const renderItem = ({ item }: { item: Contacts.Contact }) => (
-    <View style={styles.contactRow}>
-      <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{item.name?.charAt(0) || '?'}</Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.contactName}>{item.name || 'Unknown'}</Text>
-        <Text style={styles.contactDetail}>
-            {item.phoneNumbers?.[0]?.number || item.emails?.[0]?.email || 'No details'}
-        </Text>
-      </View>
-      <Button 
-        title="Invite" 
-        size="small" 
-        variant="outline"
-        onPress={() => inviteContact(item)} 
-      />
-    </View>
-  );
+  const renderItem = ({ item }: { item: Contacts.Contact }) => {
+      const rawPhone = item.phoneNumbers?.[0]?.number || '';
+      const clean = cleanPhone(rawPhone);
+      const isRegistered = registeredPhones.has(clean);
+      
+      return (
+        <View style={styles.contactRow}>
+          <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{item.name?.charAt(0) || '?'}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.contactName}>{item.name || 'Unknown'}</Text>
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                 <Text style={styles.contactDetail}>
+                    {item.phoneNumbers?.[0]?.number || item.emails?.[0]?.email || 'No details'}
+                 </Text>
+                 {isRegistered && (
+                     <View style={{backgroundColor: '#E6FFFA', marginLeft: 6, paddingHorizontal: 4, borderRadius: 4}}>
+                         <Text style={{fontSize: 10, color: '#38A169', fontWeight: 'bold'}}>USES APP</Text>
+                     </View>
+                 )}
+            </View>
+          </View>
+          <Button 
+            title={isRegistered ? "Add" : "Invite"} 
+            size="small" 
+            variant={isRegistered ? "primary" : "outline"}
+            onPress={() => inviteContact(item)} 
+            style={isRegistered ? { backgroundColor: '#38A169', borderColor: '#38A169' } : {}}
+          />
+        </View>
+      );
+  };
 
   if (!permissionGranted && !loading) {
       return (
