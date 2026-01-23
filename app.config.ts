@@ -5,7 +5,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: "SmashTracker",
     slug: "smashtracker",
-    version: "2.0.3",
+    version: "2.0.5",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -26,7 +26,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         "backgroundColor": "#ffffff"
       },
       "package": "com.gk.smashtracker",
-      "versionCode": 4,
+      "versionCode": 5,
       // Dynamic Google Services File
       "googleServicesFile": process.env.GOOGLE_SERVICES_FILE || "./google-services.json",
       "edgeToEdgeEnabled": true,
