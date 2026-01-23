@@ -57,3 +57,5 @@ TASK COMPLETION RULES:
 - [x] Implement Google Authentication (Code complete, pending Firebase Console setup)
 - [x] Implement Account Deletion (Soft Delete to preserve match history)
 - [x] Setup and Debug CI/CD (GitHub Actions for Android APK)
+- [x] global statistics view on the Home Screen
+

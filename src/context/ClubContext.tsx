@@ -51,6 +51,7 @@ interface ClubContextType {
   removeGuestPlayer: (guestId: string) => Promise<void>;
   toggleAdminRole: (userId: string) => Promise<void>;
   guests: User[];
+  userTotalStats: { played: number; wins: number; losses: number; winRate: number };
 }
 
 const ClubContext = createContext<ClubContextType | undefined>(undefined);
@@ -66,6 +67,55 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
   const [pendingClubs, setPendingClubs] = useState<Club[]>([]);
   const [invitedClubs, setInvitedClubs] = useState<Club[]>([]); // New
   const [guests, setGuests] = useState<User[]>([]);
+  const [userTotalStats, setUserTotalStats] = useState({ played: 0, wins: 0, losses: 0, winRate: 0 });
+
+  // 0. Fetch Global Stats for the User
+  useEffect(() => {
+    if (!user) {
+        setUserTotalStats({ played: 0, wins: 0, losses: 0, winRate: 0 });
+        return;
+    }
+
+    const fetchGlobalStats = async () => {
+        try {
+            // Find matches where user is in team 1
+            const q1 = query(collection(db, 'matches'), where('team1', 'array-contains', user.id));
+            // Find matches where user is in team 2
+            const q2 = query(collection(db, 'matches'), where('team2', 'array-contains', user.id));
+            
+            const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+            
+            const allMatches: Match[] = [];
+            snap1.forEach(d => allMatches.push({ id: d.id, ...d.data() } as Match));
+            snap2.forEach(d => allMatches.push({ id: d.id, ...d.data() } as Match));
+            
+            let wins = 0;
+            let losses = 0;
+            
+            allMatches.forEach(m => {
+                if(m.isLive) return;
+                
+                // Check if user won
+                const inTeam1 = m.team1.includes(user.id);
+                const inTeam2 = m.team2.includes(user.id);
+                
+                if (inTeam1 && m.winnerTeam === 1) wins++;
+                else if (inTeam2 && m.winnerTeam === 2) wins++;
+                else losses++;
+            });
+            
+            const played = wins + losses;
+            const winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
+            
+            setUserTotalStats({ played, wins, losses, winRate });
+            
+        } catch (e) {
+            console.error("Error fetching global stats:", e);
+        }
+    };
+    
+    fetchGlobalStats();
+  }, [user, matches]); // Re-calculate when user changes OR when active club matches update (approximate real-time)
 
   // 1. Fetch Clubs the user belongs to
   useEffect(() => {
@@ -717,7 +767,8 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
         addGuestPlayer,
         removeGuestPlayer,
         toggleAdminRole,
-        guests
+        guests,
+        userTotalStats
     }}>
       {children}
     </ClubContext.Provider>

@@ -10,7 +10,7 @@ import { useNavigation } from '@react-navigation/native';
 
 export default function HomeScreen() {
   const { user, signOut } = useAuth();
-  const { activeClub, matches, members, pendingClubs, allUsers, userClubs, setActiveClub } = useClub();
+  const { activeClub, matches, members, pendingClubs, allUsers, userClubs, setActiveClub, userTotalStats } = useClub();
   const { theme, toggleTheme, isDark } = useTheme();
   const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
@@ -182,6 +182,44 @@ export default function HomeScreen() {
                    </View>
                    <Ionicons name="chevron-forward" size={20} color="#C05621" />
                </TouchableOpacity>
+           )}
+
+           {/* Global Stats Summary */}
+           {userTotalStats && (
+             <View style={{ marginBottom: 20 }}>
+                <Text style={styles.sectionTitle}>All Clubs Summary</Text>
+                <View style={{
+                    marginTop: 8, 
+                    paddingVertical: 16, 
+                    backgroundColor: theme.colors.surface,
+                    borderRadius: 16,
+                    flexDirection: 'row',
+                    justifyContent: 'space-around',
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: theme.colors.surfaceHighlight
+                }}>
+                    <View style={{alignItems: 'center'}}>
+                        <Text style={{fontSize: 24, fontWeight: 'bold', color: theme.colors.textPrimary}}>{userTotalStats.played}</Text>
+                        <Text style={{fontSize: 12, color: theme.colors.textSecondary}}>Played</Text>
+                    </View>
+                    <View style={{width: 1, height: 24, backgroundColor: theme.colors.surfaceHighlight}} />
+                    <View style={{alignItems: 'center'}}>
+                        <Text style={{fontSize: 24, fontWeight: 'bold', color: theme.colors.success}}>{userTotalStats.wins}</Text>
+                        <Text style={{fontSize: 12, color: theme.colors.textSecondary}}>Wins</Text>
+                    </View>
+                    <View style={{width: 1, height: 24, backgroundColor: theme.colors.surfaceHighlight}} />
+                    <View style={{alignItems: 'center'}}>
+                        <Text style={{fontSize: 24, fontWeight: 'bold', color: theme.colors.error}}>{userTotalStats.losses}</Text>
+                        <Text style={{fontSize: 12, color: theme.colors.textSecondary}}>Losses</Text>
+                    </View>
+                    <View style={{width: 1, height: 24, backgroundColor: theme.colors.surfaceHighlight}} />
+                    <View style={{alignItems: 'center'}}>
+                        <Text style={{fontSize: 24, fontWeight: 'bold', color: theme.colors.primary}}>{userTotalStats.winRate}%</Text>
+                        <Text style={{fontSize: 12, color: theme.colors.textSecondary}}>Win Rate</Text>
+                    </View>
+                </View>
+             </View>
            )}
 
           {/* Club Switcher / List */}

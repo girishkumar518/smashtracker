@@ -344,11 +344,16 @@ export default function ClubManagementScreen() {
     </View>
   );
 
-  return (View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
-                  <Text style={styles.clubName}>{activeClub.name}</Text>
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
+       <ScrollView style={styles.container}>
+          <Card style={styles.headerCard}>
+              <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 16}}>
+                  <Text style={[styles.clubName, {marginBottom: 0}]}>{activeClub.name}</Text>
                   {isOwner && (
                       <TouchableOpacity 
-                        style={{marginLeft: 10, padding: 4}}
+                        style={{marginLeft: 8, padding: 4}}
                         onPress={() => {
                             setEditingClubName(activeClub.name);
                             setEditNameModalVisible(true);
@@ -357,12 +362,7 @@ export default function ClubManagementScreen() {
                           <Ionicons name="pencil" size={20} color={theme.colors.primary} />
                       </TouchableOpacity>
                   )}
-              </View
-    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
-       <ScrollView style={styles.container}>
-          <Card style={styles.headerCard}>
-              <Text style={styles.clubName}>{activeClub.name}</Text>
+              </View>
               <Text style={styles.sectionLabel}>Invite Code</Text>
               
               <TouchableOpacity onPress={copyInviteCode} style={{flexDirection: 'row', alignItems: 'center', marginTop: 8}}>
@@ -583,6 +583,19 @@ export default function ClubManagementScreen() {
                             try {
                                 await addGuestPlayer(newGuestName);
                                 setAddGuestModalVisible(false);
+                                setNewGuestName('');
+                            } catch(e) {
+                                Alert.alert("Error", "Failed to add guest.");
+                            }
+                        }}
+                        style={{flex: 1}}
+                    />
+                </View>
+            </View>
+        </View>
+      </Modal>
+      )}
+
       {/* Edit Name Modal */}
       <Modal visible={editNameModalVisible} transparent animationType="fade" onRequestClose={() => setEditNameModalVisible(false)}>
         <View style={styles.modalOverlay}>
@@ -622,19 +635,6 @@ export default function ClubManagementScreen() {
             </View>
         </View>
       </Modal>
-
-                                setNewGuestName('');
-                            } catch(e) {
-                                Alert.alert("Error", "Failed to add guest.");
-                            }
-                        }}
-                        style={{flex: 1}}
-                    />
-                </View>
-            </View>
-        </View>
-      </Modal>
-      )}
 
     </View>
   );
