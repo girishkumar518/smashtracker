@@ -275,7 +275,7 @@ export default function MatchSetupScreen() {
         />
 
         {/* Player Selection Modal */}
-        <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
+        <Modal visible={modalVisible} animationType="slide" onRequestClose={() => setModalVisible(false)}>
           <SafeAreaView style={{flex: 1, backgroundColor: theme.colors.background}}>
             <View style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}>
                 <View style={styles.modalHeader}>

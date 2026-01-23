@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, StatusBar, Dimensions, Animated, Easing } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, StatusBar, Dimensions, Animated, Easing, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useClub } from '../context/ClubContext';
@@ -26,6 +26,7 @@ const TEAM_COLORS = {
 };
 
 export default function LiveScoreScreen() {
+  const insets = useSafeAreaInsets();
   const route = useRoute();
   const navigation = useNavigation();
   const { theme, isDark } = useTheme();
@@ -343,11 +344,11 @@ export default function LiveScoreScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
       
       {/* Header / Scoreboard */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) }]}>
          <View style={styles.setBadge}>
              <Text style={styles.setBadgeTitle}>SET</Text>
              <Text style={styles.setBadgeValue}>{currentSet}</Text>
@@ -440,7 +441,7 @@ export default function LiveScoreScreen() {
           </View>
       </Animated.View>
 
-      <View style={styles.controlBar}>
+      <View style={[styles.controlBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <TouchableOpacity style={styles.actionBtn} onPress={undo} disabled={history.length === 0}>
              <Ionicons name="arrow-undo-outline" size={24} color={history.length===0 ? theme.colors.textSecondary : theme.colors.textPrimary} />
              <Text style={[styles.actionBtnText, { color: history.length === 0 ? theme.colors.textSecondary : theme.colors.textPrimary }]}>Undo</Text>
@@ -461,7 +462,7 @@ export default function LiveScoreScreen() {
              <Text style={[styles.actionBtnText, {color: theme.colors.error}]}>End</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -480,7 +481,6 @@ const createStyles = (theme: Theme) => StyleSheet.create({
       paddingHorizontal: 8,
       borderBottomWidth: 1,
       borderBottomColor: theme.colors.surfaceHighlight,
-      height: 90,
   },
   setBadge: {
       alignItems: 'center',
