@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.badminton.smashtracker",
+      "bundleIdentifier": "com.gk.smashtracker",
       "buildNumber": "1"
     },
     "android": {
@@ -22,7 +22,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.badminton.smashtracker",
+      "package": "com.gk.smashtracker",
       "versionCode": 4,
       "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true,
