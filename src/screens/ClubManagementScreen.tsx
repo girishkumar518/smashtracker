@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, Share, Alert, TouchableOpacity, ScrollView, Platform, StatusBar, Modal, TextInput } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Share, Alert, TouchableOpacity, ScrollView, Platform, StatusBar, Modal, TextInput, SafeAreaView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
@@ -476,7 +476,7 @@ export default function ClubManagementScreen() {
 
       {/* Merge Modal */}
       <Modal visible={mergeModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setMergeModalVisible(false)}>
-        <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
             <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Link "{selectedGuest?.displayName}" to...</Text>
                 <Button title="Close" variant="outline" onPress={() => setMergeModalVisible(false)} style={{ paddingVertical: 6, paddingHorizontal: 12 }} textStyle={{fontSize: 14}} />
@@ -502,7 +502,7 @@ export default function ClubManagementScreen() {
                 )}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
             />
-        </View>
+        </SafeAreaView>
       </Modal>
 
       {/* Add Guest Modal */}
