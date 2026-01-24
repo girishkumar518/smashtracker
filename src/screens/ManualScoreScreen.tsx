@@ -129,13 +129,7 @@ export default function ManualScoreScreen() {
 
     rawSets.forEach((set, index) => {
       if (!isNaN(set.t1) && !isNaN(set.t2)) {
-        // Validation: At least one score >= 21
-        if (set.t1 < 21 && set.t2 < 21) {
-             Alert.alert('Invalid Score', `In Set ${index + 1}, at least one team must reach 21 points.`);
-             hasError = true;
-             return;
-        }
-
+        
         recordedSets.push({ team1Score: set.t1, team2Score: set.t2 });
         if (set.t1 > set.t2) wins1++;
         else if (set.t2 > set.t1) wins2++;
@@ -228,9 +222,9 @@ export default function ManualScoreScreen() {
                 {renderTeamNames(team1Players, 1)}
                 <TextInput 
                   style={styles.input} 
-                  keyboardType="numeric" 
+                  keyboardType="number-pad" 
                   value={s1t1} 
-                  onChangeText={setS1T1} 
+                  onChangeText={(t) => setS1T1(t.replace(/[^0-9]/g, ''))} 
                   placeholder="0"
                   placeholderTextColor={theme.colors.textSecondary}
                 />
@@ -240,9 +234,9 @@ export default function ManualScoreScreen() {
                 {renderTeamNames(team2Players, 2)}
                 <TextInput 
                   style={styles.input} 
-                  keyboardType="numeric" 
+                  keyboardType="number-pad" 
                   value={s1t2} 
-                  onChangeText={setS1T2} 
+                  onChangeText={(t) => setS1T2(t.replace(/[^0-9]/g, ''))} 
                   placeholder="0"
                   placeholderTextColor={theme.colors.textSecondary}
                 />
@@ -259,9 +253,9 @@ export default function ManualScoreScreen() {
                 {renderTeamNames(team1Players, 1)}
                 <TextInput 
                   style={styles.input} 
-                  keyboardType="numeric" 
+                  keyboardType="number-pad" 
                   value={s2t1} 
-                  onChangeText={setS2T1} 
+                  onChangeText={(t) => setS2T1(t.replace(/[^0-9]/g, ''))} 
                   placeholder="0"
                   placeholderTextColor={theme.colors.textSecondary}
                 />
@@ -271,9 +265,9 @@ export default function ManualScoreScreen() {
                 {renderTeamNames(team2Players, 2)}
                 <TextInput 
                   style={styles.input} 
-                  keyboardType="numeric" 
+                  keyboardType="number-pad" 
                   value={s2t2} 
-                  onChangeText={setS2T2} 
+                  onChangeText={(t) => setS2T2(t.replace(/[^0-9]/g, ''))} 
                   placeholder="0"
                   placeholderTextColor={theme.colors.textSecondary}
                 />
@@ -288,9 +282,9 @@ export default function ManualScoreScreen() {
                 {renderTeamNames(team1Players, 1)}
                 <TextInput 
                   style={styles.input} 
-                  keyboardType="numeric" 
+                  keyboardType="number-pad" 
                   value={s3t1} 
-                  onChangeText={setS3T1} 
+                  onChangeText={(t) => setS3T1(t.replace(/[^0-9]/g, ''))} 
                   placeholder="0"
                   placeholderTextColor={theme.colors.textSecondary}
                 />
@@ -300,9 +294,9 @@ export default function ManualScoreScreen() {
                 {renderTeamNames(team2Players, 2)}
                 <TextInput 
                   style={styles.input} 
-                  keyboardType="numeric" 
+                  keyboardType="number-pad" 
                   value={s3t2} 
-                  onChangeText={setS3T2} 
+                  onChangeText={(t) => setS3T2(t.replace(/[^0-9]/g, ''))} 
                   placeholder="0"
                   placeholderTextColor={theme.colors.textSecondary}
                 />
