@@ -208,7 +208,7 @@ export default function LiveScoreScreen() {
         team2: team2.map(p => p.id),
         scores: newSets.map(s => ({ team1Score: s.t1, team2Score: s.t2 })),
         winnerTeam: matchWinner,
-        isLive: true,
+        isLive: false,
         stats: {
             maxConsecutivePts: { team1: maxStreak1, team2: maxStreak2 },
             pointsWonOnServe: { team1: servePoints1, team2: servePoints2 }

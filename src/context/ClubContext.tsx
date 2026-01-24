@@ -52,6 +52,7 @@ interface ClubContextType {
   toggleAdminRole: (userId: string) => Promise<void>;
   guests: User[];
   userTotalStats: { played: number; wins: number; losses: number; winRate: number };
+  refreshGlobalStats: () => Promise<void>;
 }
 
 const ClubContext = createContext<ClubContextType | undefined>(undefined);
@@ -69,53 +70,125 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
   const [guests, setGuests] = useState<User[]>([]);
   const [userTotalStats, setUserTotalStats] = useState({ played: 0, wins: 0, losses: 0, winRate: 0 });
 
-  // 0. Fetch Global Stats for the User
-  useEffect(() => {
+  const fetchGlobalStats = async () => {
     if (!user) {
         setUserTotalStats({ played: 0, wins: 0, losses: 0, winRate: 0 });
         return;
     }
 
-    const fetchGlobalStats = async () => {
-        try {
-            // Find matches where user is in team 1
-            const q1 = query(collection(db, 'matches'), where('team1', 'array-contains', user.id));
-            // Find matches where user is in team 2
-            const q2 = query(collection(db, 'matches'), where('team2', 'array-contains', user.id));
-            
-            const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
-            
-            const allMatches: Match[] = [];
-            snap1.forEach(d => allMatches.push({ id: d.id, ...d.data() } as Match));
-            snap2.forEach(d => allMatches.push({ id: d.id, ...d.data() } as Match));
-            
-            let wins = 0;
-            let losses = 0;
-            
-            allMatches.forEach(m => {
-                if(m.isLive) return;
-                
-                // Check if user won
-                const inTeam1 = m.team1.includes(user.id);
-                const inTeam2 = m.team2.includes(user.id);
-                
-                if (inTeam1 && m.winnerTeam === 1) wins++;
-                else if (inTeam2 && m.winnerTeam === 2) wins++;
-                else losses++;
-            });
-            
-            const played = wins + losses;
-            const winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
-            
-            setUserTotalStats({ played, wins, losses, winRate });
-            
-        } catch (e) {
-            console.error("Error fetching global stats:", e);
-        }
-    };
+    // If user has no clubs yet (or loading), we can't aggregate from clubs.
+    // However, for data consistency with the dashboard, we now iterate through userClubs.
+    if (userClubs.length === 0) {
+        setUserTotalStats({ played: 0, wins: 0, losses: 0, winRate: 0 });
+        return;
+    }
     
+    console.log("ClubContext: Aggregating Global Stats from", userClubs.length, "clubs");
+    
+    try {
+        // Strategy: Aggregate matches from all Active Clubs.
+        // This ensures stats match exactly what is shown in the Club Dashboards.
+        // It's robust against Global Query index issues or Guest matches (if merged).
+        const matchesPromises = userClubs.map(club => {
+            const resultLimit = 100; // Optimization: Cap local history to 100 recent matches per club to save reads/bandwidth
+            const q = query(
+                collection(db, 'matches'), 
+                where('clubId', '==', club.id),
+                orderBy('date', 'desc')
+                // limit(resultLimit) // Optional: Uncomment if users play thousands of matches
+            );
+            return getDocs(q);
+        });
+        
+        const snapshots = await Promise.all(matchesPromises);
+        
+        // Use a Map to deduplicate matches (unlikely needed if clubIds are unique, but good practice)
+        const uniqueMatches = new Map<string, Match>();
+        
+        snapshots.forEach(chap => {
+            chap.docs.forEach(d => {
+                const m = { id: d.id, ...d.data() } as Match;
+                // Double check if user actually played in this match
+                const playedInT1 = m.team1 && m.team1.includes(user.id);
+                const playedInT2 = m.team2 && m.team2.includes(user.id);
+                
+                if (playedInT1 || playedInT2) {
+                    uniqueMatches.set(d.id, m);
+                }
+            });
+        });
+        
+        console.log(`ClubContext: Found ${uniqueMatches.size} unique matches across active clubs.`);
+        
+        let wins = 0;
+        let losses = 0;
+        
+        uniqueMatches.forEach(m => {
+            // Fix for Legacy Bug: LiveScoreScreen was saving finished matches as isLive=true.
+            // Result: Stats were ignoring them. 
+            // Fix: If a winner is explicitly set (1 or 2), we count it as finished regardless of isLive flag.
+            const isActuallyLive = m.isLive && (m.winnerTeam !== 1 && m.winnerTeam !== 2);
+            
+            if(isActuallyLive) {
+                console.log(`ClubContext: Skipping Match ${m.id} (Status: Live & No Winner)`);
+                return;
+            }
+            
+            let winner = m.winnerTeam;
+
+            // Attempt to repair missing winnerTeam from scores
+            // @ts-ignore
+            if (winner != 1 && winner != 2) {
+                if (m.scores && Array.isArray(m.scores)) {
+                    let s1Wins = 0, s2Wins = 0;
+                    m.scores.forEach(s => {
+                         if (s.team1Score > s.team2Score) s1Wins++;
+                         else if (s.team2Score > s.team1Score) s2Wins++;
+                    });
+                    if (s1Wins > s2Wins) winner = 1;
+                    else if (s2Wins > s1Wins) winner = 2;
+                }
+            }
+            
+            // Safety check: Ensure valid winner
+            // @ts-ignore
+            if (winner != 1 && winner != 2) {
+                console.log(`ClubContext: Skipping Match ${m.id} - Invalid Winner & Score Repair Failed. Winner: ${m.winnerTeam}, Scores:`, m.scores);
+                return;
+            }
+            
+            // Check if user won
+            const inTeam1 = m.team1.includes(user.id);
+            const inTeam2 = m.team2.includes(user.id);
+            
+            if (inTeam1) {
+                // @ts-ignore
+                if (winner == 1) wins++;
+                else losses++;
+            } else if (inTeam2) {
+                // @ts-ignore
+                if (winner == 2) wins++;
+                else losses++;
+            } else {
+                 console.log(`ClubContext: Skipping Match ${m.id} - User ${user.id} not found in teams. T1: ${m.team1}, T2: ${m.team2}`);
+            }
+        });
+        
+        const played = wins + losses;
+        const winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
+        
+        console.log(`ClubContext: Stats Calculated -> Played: ${played}, Wins: ${wins}, Losses: ${losses}`);
+        setUserTotalStats({ played, wins, losses, winRate });
+        
+    } catch (e) {
+        console.error("Error fetching global stats:", e);
+    }
+  };
+
+  // 0. Fetch Global Stats for the User
+  useEffect(() => {
     fetchGlobalStats();
-  }, [user, matches]); // Re-calculate when user changes OR when active club matches update (approximate real-time)
+  }, [user, matches, userClubs]); // Re-calculate when userClubs load/change
 
   // 1. Fetch Clubs the user belongs to
   useEffect(() => {
@@ -768,7 +841,8 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
         removeGuestPlayer,
         toggleAdminRole,
         guests,
-        userTotalStats
+        userTotalStats,
+        refreshGlobalStats: fetchGlobalStats
     }}>
       {children}
     </ClubContext.Provider>

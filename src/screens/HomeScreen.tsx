@@ -10,7 +10,7 @@ import { useNavigation } from '@react-navigation/native';
 
 export default function HomeScreen() {
   const { user, signOut } = useAuth();
-  const { activeClub, matches, members, pendingClubs, allUsers, userClubs, setActiveClub, userTotalStats } = useClub();
+  const { activeClub, matches, members, pendingClubs, allUsers, userClubs, setActiveClub, userTotalStats, refreshGlobalStats } = useClub();
   const { theme, toggleTheme, isDark } = useTheme();
   const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
@@ -18,6 +18,11 @@ export default function HomeScreen() {
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
+
+  // Initial Fetch on mount
+  useEffect(() => {
+    if (refreshGlobalStats) refreshGlobalStats();
+  }, []);
 
   useEffect(() => {
     Animated.parallel([
@@ -122,12 +127,15 @@ export default function HomeScreen() {
     };
   }, [matches, user, members, allUsers]);
 
-  const onRefresh = React.useCallback(() => {
+  const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
+    if (refreshGlobalStats) {
+        await refreshGlobalStats();
+    }
     setTimeout(() => {
       setRefreshing(false);
     }, 1000);
-  }, []);
+  }, [refreshGlobalStats]);
 
   const copyInviteCode = async () => {
       if (activeClub?.inviteCode) {
