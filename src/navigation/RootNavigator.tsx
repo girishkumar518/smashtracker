@@ -14,6 +14,7 @@ import ClubManagementScreen from '../screens/ClubManagementScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import MatchOverviewScreen from '../screens/MatchOverviewScreen';
 import InviteMembersScreen from '../screens/InviteMembersScreen';
+import MatchHistoryScreen from '../screens/MatchHistoryScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -41,6 +42,7 @@ export default function RootNavigator() {
             <Stack.Screen name="MatchSetup" component={MatchSetupScreen} options={{ headerShown: true, title: 'New Match' }} />
             <Stack.Screen name="LiveScore" component={LiveScoreScreen} options={{ headerShown: false }} />
             <Stack.Screen name="MatchOverview" component={MatchOverviewScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="MatchHistory" component={MatchHistoryScreen} options={{ headerShown: true, title: 'Match History' }} />
             <Stack.Screen name="ManualScore" component={ManualScoreScreen} options={{ headerShown: true, title: 'Record Result' }} />
             <Stack.Screen name="ClubManagement" component={ClubManagementScreen} options={{ headerShown: true, title: 'Manage Club' }} />
             <Stack.Screen name="InviteMembers" component={InviteMembersScreen} options={{ headerShown: true, title: 'Invite From Contacts' }} />

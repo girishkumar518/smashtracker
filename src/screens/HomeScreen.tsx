@@ -417,7 +417,7 @@ export default function HomeScreen() {
                 <View style={{ marginTop: 32, paddingBottom: 40 }}>
                    <View style={styles.sectionHeader}>
                       <Text style={styles.sectionTitle}>Recent History</Text>
-                      <TouchableOpacity onPress={() => {}}>
+                      <TouchableOpacity onPress={() => navigation.navigate('MatchHistory')}>
                           <Text style={styles.seeAllText}>See All</Text>
                       </TouchableOpacity>
                    </View>
