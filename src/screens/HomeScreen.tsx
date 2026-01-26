@@ -306,32 +306,78 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
       
-      {/* Header */}
+      {/* 1. Modern Header */}
       <View style={styles.header}>
-        <View style={{flex: 1}}>
-          <Text style={styles.greeting}>Welcome back,</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.profileRow}>
-             <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{user?.displayName?.charAt(0).toUpperCase() || 'P'}</Text>
-             </View>
-             <View>
-                <Text style={styles.userName}>{user?.displayName || 'Player'}</Text>
-                <Text style={styles.editProfileLink}>View Profile</Text>
-             </View>
-          </TouchableOpacity>
+        {/* Top: Avatar & Actions */}
+        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12}}>
+             <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={[styles.avatar, { marginRight: 0 }]}>
+                    <Text style={styles.avatarText}>{user?.displayName?.charAt(0).toUpperCase() || 'P'}</Text>
+                </View>
+             </TouchableOpacity>
+
+            <View style={{flexDirection:'row', gap: 12}}>
+                <TouchableOpacity style={styles.iconBtn} onPress={toggleTheme}>
+                    <Ionicons name={isDark ? "sunny" : "moon"} size={20} color={theme.colors.textPrimary} />
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.iconBtn, {backgroundColor: theme.colors.error + '10'}]} onPress={signOut}>
+                    <Ionicons name="log-out-outline" size={20} color={theme.colors.error} />
+                </TouchableOpacity>
+            </View>
         </View>
-        <View style={{flexDirection:'row', gap: 10}}>
-            <TouchableOpacity style={styles.iconBtn} onPress={toggleTheme}>
-                <Ionicons name={isDark ? "sunny-outline" : "moon-outline"} size={22} color={theme.colors.textPrimary} />
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.iconBtn, {backgroundColor: theme.colors.error + '15'}]} onPress={signOut}>
-                <Ionicons name="log-out-outline" size={22} color={theme.colors.error} />
-            </TouchableOpacity>
+
+        {/* Middle: Prominent Greeting */}
+        <View style={{ marginBottom: 16 }}>
+            <Text style={styles.greeting}>Hello, {user?.displayName?.split(' ')[0] || 'Player'}!</Text>
+            <Text style={styles.dateSubtext}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</Text>
+        </View>
+
+        {/* Bottom: Context/Club Switcher */}
+        <View>
+            <Text style={{fontSize: 12, fontWeight: 'bold', color: theme.colors.textSecondary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5}}>
+                Active Club
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 12}}>
+                {/* Active Clubs */}
+                {userClubs.map(club => {
+                    const isActive = activeClub?.id === club.id;
+                    return (
+                        <TouchableOpacity 
+                            key={club.id} 
+                            style={[
+                                styles.clubPill, 
+                                isActive && styles.activeClubPill
+                            ]}
+                            onPress={() => setActiveClub(club)}
+                        >
+                            <Text style={[
+                                styles.clubPillText,
+                                isActive && { color: 'white', fontWeight: 'bold' }
+                            ]}>{club.name}</Text>
+                            {isActive && <Ionicons name="checkmark-circle" size={16} color="white" style={{marginLeft: 6}} />}
+                        </TouchableOpacity>
+                    );
+                })}
+                
+                <TouchableOpacity 
+                    style={[styles.clubPill, styles.addClubPill]}
+                    onPress={() => navigation.navigate('CreateClub' as never)}
+                >
+                    <Ionicons name="add" size={18} color={theme.colors.primary} />
+                </TouchableOpacity>
+                 <TouchableOpacity 
+                    style={[styles.clubPill, styles.addClubPill]}
+                    onPress={() => navigation.navigate('JoinClub' as never)}
+                >
+                    <Ionicons name="enter-outline" size={18} color={theme.colors.primary} />
+                </TouchableOpacity>
+            </ScrollView>
         </View>
       </View>
 
       <ScrollView 
         contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.textPrimary} />
         }
@@ -350,254 +396,166 @@ export default function HomeScreen() {
                </TouchableOpacity>
            )}
 
-           {/* Global Stats Summary */}
+           {/* Pending Requests Banner */}
+           {pendingClubs && pendingClubs.length > 0 && (
+              <View style={styles.alertCard}>
+                 <Text style={{ fontSize: 14, fontWeight: 'bold', color: theme.colors.secondary, marginBottom: 4 }}>
+                    Requests Pending:
+                 </Text>
+                 {pendingClubs.map(club => (
+                     <Text key={club.id} style={{ color: theme.colors.textSecondary, fontSize: 12 }}>• {club.name}</Text>
+                 ))}
+              </View>
+           )}
+
+           {/* 3. Global Stats Strip (Compact) */}
            {userTotalStats && (
-             <View style={{ marginBottom: 20 }}>
-                <Text style={styles.sectionTitle}>All Clubs Summary</Text>
-                <View style={{
-                    marginTop: 8, 
-                    paddingVertical: 16, 
-                    backgroundColor: theme.colors.surface,
-                    borderRadius: 16,
-                    flexDirection: 'row',
-                    justifyContent: 'space-around',
-                    alignItems: 'center',
-                    borderWidth: 1,
-                    borderColor: theme.colors.surfaceHighlight
-                }}>
-                    <View style={{alignItems: 'center'}}>
-                        <Text style={{fontSize: 24, fontWeight: 'bold', color: theme.colors.textPrimary}}>{userTotalStats.played}</Text>
-                        <Text style={{fontSize: 12, color: theme.colors.textSecondary}}>Played</Text>
-                    </View>
-                    <View style={{width: 1, height: 24, backgroundColor: theme.colors.surfaceHighlight}} />
-                    <View style={{alignItems: 'center'}}>
-                        <Text style={{fontSize: 24, fontWeight: 'bold', color: theme.colors.success}}>{userTotalStats.wins}</Text>
-                        <Text style={{fontSize: 12, color: theme.colors.textSecondary}}>Wins</Text>
-                    </View>
-                    <View style={{width: 1, height: 24, backgroundColor: theme.colors.surfaceHighlight}} />
-                    <View style={{alignItems: 'center'}}>
-                        <Text style={{fontSize: 24, fontWeight: 'bold', color: theme.colors.error}}>{userTotalStats.losses}</Text>
-                        <Text style={{fontSize: 12, color: theme.colors.textSecondary}}>Losses</Text>
-                    </View>
-                    <View style={{width: 1, height: 24, backgroundColor: theme.colors.surfaceHighlight}} />
-                    <View style={{alignItems: 'center'}}>
-                        <Text style={{fontSize: 24, fontWeight: 'bold', color: theme.colors.primary}}>{userTotalStats.winRate}%</Text>
-                        <Text style={{fontSize: 12, color: theme.colors.textSecondary}}>Win Rate</Text>
-                    </View>
+             <View style={styles.globalStatsStrip}>
+                <View style={styles.globalStatItem}>
+                    <Text style={styles.globalStatValue}>{userTotalStats.played}</Text>
+                    <Text style={styles.globalStatLabel}>Played</Text>
+                </View>
+                <View style={[styles.vertDivider, {backgroundColor: theme.colors.border}]} />
+                <View style={styles.globalStatItem}>
+                    <Text style={[styles.globalStatValue, {color: theme.colors.success}]}>{userTotalStats.wins}</Text>
+                    <Text style={styles.globalStatLabel}>Wins</Text>
+                </View>
+                <View style={[styles.vertDivider, {backgroundColor: theme.colors.border}]} />
+                <View style={styles.globalStatItem}>
+                    <Text style={[styles.globalStatValue, {color: theme.colors.primary}]}>{userTotalStats.winRate}%</Text>
+                    <Text style={styles.globalStatLabel}>Win Rate</Text>
                 </View>
              </View>
            )}
 
-           {/* Stats Summary Section */}
-           <View style={{ marginBottom: 20 }}>
-                {/* Header with Toggles */}
-                <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
-                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-                        <Text style={styles.sectionTitle}>Highlights</Text>
-                    </View>
-                    
-                    {/* View Mode Toggle */}
-                    <View style={{flexDirection: 'row', backgroundColor: theme.colors.surfaceHighlight, borderRadius: 8, padding: 2}}>
-                        <TouchableOpacity 
-                            onPress={() => { setStatsMode('day'); setStatsDate(new Date()); }}
-                            style={{
-                                paddingHorizontal: 12, paddingVertical: 4, borderRadius: 6,
-                                backgroundColor: statsMode === 'day' ? theme.colors.surface : 'transparent',
-                                shadowColor: '#000', shadowOpacity: statsMode === 'day' ? 0.1 : 0, shadowRadius: 2, elevation: statsMode === 'day' ? 1 : 0
-                            }}
-                        >
-                            <Text style={{fontSize: 12, fontWeight: '600', color: statsMode === 'day' ? theme.colors.textPrimary : theme.colors.textSecondary}}>Day</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                            onPress={() => { setStatsMode('month'); setStatsDate(new Date()); }}
-                            style={{
-                                paddingHorizontal: 12, paddingVertical: 4, borderRadius: 6,
-                                backgroundColor: statsMode === 'month' ? theme.colors.surface : 'transparent',
-                                shadowColor: '#000', shadowOpacity: statsMode === 'month' ? 0.1 : 0, shadowRadius: 2, elevation: statsMode === 'month' ? 1 : 0
-                            }}
-                        >
-                            <Text style={{fontSize: 12, fontWeight: '600', color: statsMode === 'month' ? theme.colors.textPrimary : theme.colors.textSecondary}}>Month</Text>
-                        </TouchableOpacity>
-                    </View>
+           {/* 4. Filter & Date Control */}
+           <View style={{ marginBottom: 16 }}>
+                {/* Segmented Control */}
+                <View style={{flexDirection: 'row', backgroundColor: theme.colors.surfaceHighlight, padding: 4, borderRadius: 12, marginBottom: 16, alignSelf: 'center'}}>
+                     {['day', 'month'].map((m) => {
+                         const isActive = statsMode === m;
+                         return (
+                            <TouchableOpacity 
+                                key={m}
+                                onPress={() => { setStatsMode(m as any); setStatsDate(new Date()); }}
+                                style={{
+                                    paddingHorizontal: 24, 
+                                    paddingVertical: 8, 
+                                    borderRadius: 10,
+                                    backgroundColor: isActive ? theme.colors.surface : 'transparent',
+                                    shadowColor: '#000', 
+                                    shadowOpacity: isActive ? 0.05 : 0, 
+                                    shadowRadius: 2, 
+                                    elevation: isActive ? 1 : 0
+                                }}
+                            >
+                                <Text style={{
+                                    fontSize: 14, 
+                                    fontWeight: '600', 
+                                    color: isActive ? theme.colors.textPrimary : theme.colors.textSecondary,
+                                    textTransform: 'capitalize'
+                                }}>{m}</Text>
+                            </TouchableOpacity>
+                         );
+                     })}
                 </View>
 
-                {/* Date Navigator */}
-                <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 16, backgroundColor: theme.colors.surface, padding: 8, borderRadius: 12}}>
-                    <TouchableOpacity onPress={() => changeDate(-1)} style={{padding: 4}}>
-                        <MaterialCommunityIcons name="chevron-left" size={24} color={theme.colors.textSecondary} />
+                {/* Date Navigation */}
+                <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16}}>
+                    <TouchableOpacity onPress={() => changeDate(-1)} style={styles.navBtn}>
+                        <MaterialCommunityIcons name="chevron-left" size={24} color={theme.colors.textPrimary} />
                     </TouchableOpacity>
-                    <Text style={{fontSize: 14, fontWeight: '600', color: theme.colors.textPrimary, marginHorizontal: 16, minWidth: 100, textAlign: 'center'}}>
-                        {formattedDateLabel}
-                    </Text>
-                    <TouchableOpacity onPress={() => changeDate(1)} style={{padding: 4}}>
-                        <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.textSecondary} />
+                    <View style={{alignItems: 'center'}}>
+                        <Text style={{fontSize: 18, fontWeight: '700', color: theme.colors.textPrimary}}>
+                            {formattedDateLabel}
+                        </Text>
+                        <Text style={{fontSize: 12, color: theme.colors.textSecondary}}>
+                            {statsMode === 'day' ? 'Daily Report' : 'Monthly Overview'}
+                        </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => changeDate(1)} style={styles.navBtn}>
+                        <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.textPrimary} />
                     </TouchableOpacity>
                 </View>
+           </View>
 
-                {periodStats ? (
-                     <View style={{ gap: 12 }}>
-                        {/* Main Card: Matches Played */}
-                        <View style={[styles.statCard, { backgroundColor: theme.colors.surface, padding: 16 }]}>
-                             <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-                                 <View>
-                                     <Text style={{color: theme.colors.textSecondary, fontSize: 14, marginBottom: 4}}>Total Matches</Text>
-                                     <Text style={{color: theme.colors.textPrimary, fontSize: 32, fontWeight: '800'}}>{periodStats.totalMatches}</Text>
-                                 </View>
-                                 <View style={{backgroundColor: theme.colors.primary + '20', padding: 12, borderRadius: 50}}>
-                                     <MaterialCommunityIcons name="badminton" size={32} color={theme.colors.primary} />
-                                 </View>
-                             </View>
-                        </View>
+           {/* 5. Horizontal Highlights Carousel */}
+           {periodStats ? (
+             <View style={{ marginBottom: 24 }}>
+                <Text style={[styles.sectionTitle, {marginLeft: 4, marginBottom: 12}]}>Performance Highlights</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 12, paddingRight: 20}}>
+                     
+                     {/* 1. Total Matches */}
+                     <View style={[styles.highlightCard, {backgroundColor: theme.colors.surface}]}>
+                         <View style={[styles.iconCircle, {backgroundColor: theme.colors.primary + '15'}]}>
+                            <MaterialCommunityIcons name="badminton" size={24} color={theme.colors.primary} />
+                         </View>
+                         <Text style={styles.highlightVal}>{periodStats.totalMatches}</Text>
+                         <Text style={styles.highlightLabel}>Matches Played</Text>
+                     </View>
 
-                        {/* Leaderboards Grid */}
-                        <View style={{flexDirection: 'row', gap: 12}}>
-                            {/* Most Wins */}
-                            <View style={[styles.statCard, {flex: 1, backgroundColor: theme.colors.surface, padding: 12}]}>
-                                 <View style={{flexDirection: 'row', gap: 6, marginBottom: 8}}>
-                                     <MaterialCommunityIcons name="trophy" size={16} color="#F59E0B" />
-                                     <Text style={{color: theme.colors.textSecondary, fontSize: 12, fontWeight: '600'}}>MOST WINS</Text>
-                                 </View>
-                                 <Text style={{color: theme.colors.textPrimary, fontSize: 16, fontWeight: 'bold', marginBottom: 2}} numberOfLines={1}>
-                                     {periodStats.mostWins.name}
-                                 </Text>
-                                 <Text style={{color: theme.colors.success, fontSize: 12, fontWeight: 'bold'}}>
-                                     {periodStats.mostWins.val} Wins
-                                 </Text>
+                     {/* 2. Hot Streak */}
+                     {periodStats.longestStreak.val > 0 && (
+                        <View style={[styles.highlightCard, {backgroundColor: '#FFF5F5', borderColor: '#FED7D7', borderWidth: 1}]}>
+                            <View style={[styles.iconCircle, {backgroundColor: '#FFF5F5'}]}>
+                                <MaterialCommunityIcons name="fire" size={24} color="#E53E3E" />
                             </View>
+                            <Text style={[styles.highlightVal, {color: '#C53030'}]}>{periodStats.longestStreak.val}</Text>
+                            <Text style={[styles.highlightLabel, {color: '#9B2C2C'}]}>Hot Streak</Text>
+                            <Text style={[styles.highlightSub, {color: '#9B2C2C'}]} numberOfLines={1}>{periodStats.longestStreak.name}</Text>
+                        </View>
+                     )}
 
-                            {/* Most Points */}
-                            <View style={[styles.statCard, {flex: 1, backgroundColor: theme.colors.surface, padding: 12}]}>
-                                 <View style={{flexDirection: 'row', gap: 6, marginBottom: 8}}>
-                                     <MaterialCommunityIcons name="star-circle" size={16} color={theme.colors.primary} />
-                                     <View>
-                                        <Text style={{color: theme.colors.textSecondary, fontSize: 12, fontWeight: '600'}}>TOP POINTS</Text>
-                                        <Text style={{color: theme.colors.textSecondary, fontSize: 8, fontStyle: 'italic'}}>(Win 3, Play 1)</Text>
-                                     </View>
-                                 </View>
-                                 <Text style={{color: theme.colors.textPrimary, fontSize: 16, fontWeight: 'bold', marginBottom: 2}} numberOfLines={1}>
-                                     {periodStats.mostPoints.name}
-                                 </Text>
-                                 <Text style={{color: theme.colors.primary, fontSize: 12, fontWeight: 'bold'}}>
-                                     {periodStats.mostPoints.val} Pts
-                                 </Text>
+                     {/* 3. Best Duo */}
+                     {periodStats.bestPartnership.val > 0 && (
+                        <View style={[styles.highlightCard, {backgroundColor: '#F0FFF4', borderColor: '#C6F6D5', borderWidth: 1}]}>
+                            <View style={[styles.iconCircle, {backgroundColor: '#F0FFF4'}]}>
+                                <MaterialCommunityIcons name="account-group" size={24} color="#38A169" />
                             </View>
+                            <Text style={[styles.highlightVal, {color: '#2F855A'}]}>{periodStats.bestPartnership.val}</Text>
+                            <Text style={[styles.highlightLabel, {color: '#276749'}]}>Best Duo Wins</Text>
+                            <Text style={[styles.highlightSub, {color: '#276749'}]} numberOfLines={1}>{periodStats.bestPartnership.name}</Text>
                         </View>
-                        {/* Leaderboards Grid Row 2 */}
-                        <View style={{flexDirection: 'row', gap: 12}}>
-                             {/* Best Partnership */}
-                             <View style={[styles.statCard, {flex: 1, backgroundColor: theme.colors.surface, padding: 12}]}>
-                                 <View style={{flexDirection: 'row', gap: 6, marginBottom: 8}}>
-                                     <MaterialCommunityIcons name="account-group" size={16} color={theme.colors.secondary} />
-                                     <Text style={{color: theme.colors.textSecondary, fontSize: 12, fontWeight: '600'}}>BEST DUO</Text>
-                                 </View>
-                                 <Text style={{color: theme.colors.textPrimary, fontSize: 14, fontWeight: 'bold', marginBottom: 2}} numberOfLines={1}>
-                                     {periodStats.bestPartnership.name}
-                                 </Text>
-                                 <Text style={{color: theme.colors.secondary, fontSize: 12, fontWeight: 'bold'}}>
-                                     {periodStats.bestPartnership.val} Wins Together
-                                 </Text>
-                            </View>
+                     )}
 
-                            {/* Longest Streak */}
-                            <View style={[styles.statCard, {flex: 1, backgroundColor: theme.colors.surface, padding: 12}]}>
-                                 <View style={{flexDirection: 'row', gap: 6, marginBottom: 8}}>
-                                     <MaterialCommunityIcons name="fire" size={16} color="#FF4500" />
-                                     <Text style={{color: theme.colors.textSecondary, fontSize: 12, fontWeight: '600'}}>HOT STREAK</Text>
-                                 </View>
-                                 <Text style={{color: theme.colors.textPrimary, fontSize: 16, fontWeight: 'bold', marginBottom: 2}} numberOfLines={1}>
-                                     {periodStats.longestStreak.name}
-                                 </Text>
-                                 <Text style={{color: "#FF4500", fontSize: 12, fontWeight: 'bold'}}>
-                                     {periodStats.longestStreak.val} Wins in a Row
-                                 </Text>
+                     {/* 4. Top Points */}
+                     {periodStats.mostPoints.val > 0 && (
+                        <View style={[styles.highlightCard, {backgroundColor: '#FFFFF0', borderColor: '#FEFCBF', borderWidth: 1}]}>
+                            <View style={[styles.iconCircle, {backgroundColor: '#FFFFF0'}]}>
+                                <MaterialCommunityIcons name="star" size={24} color="#D69E2E" />
                             </View>
+                            <Text style={[styles.highlightVal, {color: '#B7791F'}]}>{periodStats.mostPoints.val}</Text>
+                            <Text style={[styles.highlightLabel, {color: '#975A16'}]}>League Points</Text>
+                            <Text style={[styles.highlightSub, {color: '#975A16'}]} numberOfLines={1}>{periodStats.mostPoints.name}</Text>
                         </View>
-                        
-                         {/* Most Played */}
-                         <View style={[styles.statCard, {flex: 1, backgroundColor: theme.colors.surface, padding: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}]}>
-                             <View>
-                                 <Text style={{color: theme.colors.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 2}}>MOST ACTIVE</Text>
-                                 <Text style={{color: theme.colors.textPrimary, fontSize: 16, fontWeight: 'bold'}}>
-                                     {periodStats.mostPlayed.name}
-                                 </Text>
-                             </View>
-                             <View style={{alignItems: 'flex-end'}}>
-                                 <Text style={{color: theme.colors.textPrimary, fontSize: 18, fontWeight: 'bold'}}>
-                                     {periodStats.mostPlayed.val}
-                                 </Text>
-                                 <Text style={{color: theme.colors.textSecondary, fontSize: 10}}>Matches</Text>
-                             </View>
+                     )}
+
+                     {/* 5. Most Wins */}
+                     {periodStats.mostWins.val > 0 && (
+                        <View style={[styles.highlightCard, {backgroundColor: theme.colors.surface}]}>
+                            <View style={[styles.iconCircle, {backgroundColor: theme.colors.surfaceHighlight}]}>
+                                <MaterialCommunityIcons name="trophy-outline" size={24} color={theme.colors.textSecondary} />
+                            </View>
+                            <Text style={styles.highlightVal}>{periodStats.mostWins.val}</Text>
+                            <Text style={styles.highlightLabel}>Most Wins</Text>
+                            <Text style={styles.highlightSub} numberOfLines={1}>{periodStats.mostWins.name}</Text>
                         </View>
-                    </View>
-                ) : (
-                    <View style={[styles.statCard, { backgroundColor: theme.colors.surface, padding: 24, alignItems: 'center', justifyContent: 'center' }]}>
-                        <MaterialCommunityIcons name="calendar-blank" size={40} color={theme.colors.textSecondary} style={{opacity: 0.5, marginBottom: 12}} />
-                        <Text style={{color: theme.colors.textSecondary, textAlign: 'center'}}>No matches played on this {statsMode === 'day' ? 'date' : 'month'}.</Text>
-                    </View>
-                )}
+                     )}
+                </ScrollView>
              </View>
-
-          {/* Club Switcher / List */}
-          <View style={{ marginBottom: 16 }}>
-            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems:'center', marginBottom: 8}}>
-                <Text style={styles.sectionTitle}>My Clubs</Text>
-                <TouchableOpacity onPress={() => navigation.navigate('CreateClub')}>
-                    <Text style={{color: theme.colors.primary, fontWeight:'bold', fontSize: 12}}>+ Create New</Text>
-                </TouchableOpacity>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 12}}>
-                {userClubs.map(club => (
-                    <TouchableOpacity 
-                        key={club.id} 
-                        style={[
-                            styles.clubPill, 
-                            activeClub?.id === club.id && styles.activeClubPill
-                        ]}
-                        onPress={() => setActiveClub(club)}
-                    >
-                        <Text style={[
-                            styles.clubPillText,
-                            activeClub?.id === club.id && { color: 'white' }
-                        ]}>{club.name}</Text>
-                        {activeClub?.id === club.id && (
-                            <Ionicons name="checkmark-circle" size={16} color="white" style={{marginLeft: 6}} />
-                        )}
-                    </TouchableOpacity>
-                ))}
-                
-                {/* Always visible Join/Create shortcuts if listing */}
-                <TouchableOpacity 
-                    style={[styles.clubPill, {backgroundColor: theme.colors.surfaceHighlight, borderStyle: 'dashed', borderWidth: 1}]}
-                    onPress={() => navigation.navigate('JoinClub')}
-                >
-                    <Ionicons name="enter-outline" size={16} color={theme.colors.textPrimary} />
-                    <Text style={[styles.clubPillText, {marginLeft: 6}]}>Join</Text>
-                </TouchableOpacity>
-            </ScrollView>
-          </View>
-
-          {pendingClubs && pendingClubs.length > 0 && (
-            <View style={{ marginBottom: 24 }}>
-              <View style={styles.alertCard}>
-                <View style={{flexDirection:'row', alignItems:'center', marginBottom: 8}}>
-                   <Ionicons name="time-outline" size={20} color={theme.colors.secondary} />
-                   <Text style={{ fontSize: 16, fontWeight: 'bold', color: theme.colors.secondary, marginLeft: 8 }}>
-                      Requests Pending
-                   </Text>
+           ) : (
+                <View style={[styles.emptyHighlightBox, { borderColor: theme.colors.border }]}>
+                    <MaterialCommunityIcons name="calendar-blank-outline" size={48} color={theme.colors.textSecondary} style={{opacity: 0.5}} />
+                    <Text style={{color: theme.colors.textSecondary, marginTop: 12}}>No activity for this period.</Text>
                 </View>
-                {pendingClubs.map(club => (
-                  <View key={club.id} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4, paddingLeft: 28 }}>
-                     <Text style={{ color: theme.colors.secondary }}>{club.name}</Text>
-                     <Text style={{ color: theme.colors.textSecondary, fontStyle: 'italic', fontSize: 12 }}>Waiting for approval</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-
-          {!activeClub ? (
+           )}
+           
+           {/* Detailed List or further content could go here, but kept clean for now */}
+           
+           {!activeClub ? (
             <View style={styles.emptyState}>
               <Ionicons name="people-circle-outline" size={80} color={theme.colors.textSecondary} />
+
               <Text style={styles.emptyTitle}>No Club Found</Text>
               <Text style={styles.emptyText}>
                 You are not currently a member of any badminton club.
@@ -815,23 +773,25 @@ const createStyles = (theme: Theme) => StyleSheet.create({
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 24,
     backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.surfaceHighlight,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    marginBottom: 8,
+    zIndex: 10,
   },
   greeting: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    marginBottom: 4,
+    fontSize: 26,
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
+    letterSpacing: -0.5,
   },
   profileRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
   avatar: { 
@@ -906,13 +866,92 @@ const createStyles = (theme: Theme) => StyleSheet.create({
 
   // Alert Card
   alertCard: {
-      padding: 16, borderWidth: 1, borderRadius: 12,
+      padding: 12, borderWidth: 1, borderRadius: 12, marginBottom: 16,
       borderColor: theme.colors.secondary, 
       backgroundColor: theme.colors.secondary + '15'
   },
 
   // Stats Grid
   dashboardGrid: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  
+  // -- NEW STYLE ADDITIONS FOR MODERN REDESIGN -- //
+  
+  // 1. Global Stats Strip 
+  globalStatsStrip: {
+      flexDirection: 'row', 
+      justifyContent: 'space-around', 
+      alignItems: 'center', 
+      backgroundColor: theme.colors.surface, 
+      borderRadius: 12, 
+      paddingVertical: 12,
+      marginVertical: 4, 
+      marginBottom: 20,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 1, 
+      borderWidth: 1, 
+      borderColor: theme.colors.surfaceHighlight
+  },
+  globalStatItem: { alignItems: 'center', flex: 1 },
+  globalStatValue: { fontSize: 16, fontWeight: '800', color: theme.colors.textPrimary },
+  globalStatLabel: { fontSize: 10, color: theme.colors.textSecondary, marginTop: 2 },
+  vertDivider: { width: 1, height: 20 },
+
+  // 2. Navigation
+  navBtn: { padding: 4, backgroundColor: theme.colors.surfaceHighlight, borderRadius: 50 },
+
+  // 3. Highlight Carousel Cards
+  highlightCard: {
+      width: 140, 
+      height: 140, // Square shape
+      padding: 12, 
+      borderRadius: 20, 
+      justifyContent: 'space-between',
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 3,
+  },
+  highlightVal: { fontSize: 32, fontWeight: '800', color: theme.colors.textPrimary },
+  highlightLabel: { fontSize: 12, fontWeight: '700', color: theme.colors.textPrimary, opacity: 0.8 },
+  highlightSub: { fontSize: 11, color: theme.colors.textSecondary, fontWeight: '600' },
+  iconCircle: {
+      width: 40, height: 40, borderRadius: 20, 
+      alignItems: 'center', justifyContent: 'center',
+      marginBottom: 4
+  },
+  emptyHighlightBox: {
+      height: 140, 
+      borderRadius: 20, 
+      borderWidth: 2, 
+      borderStyle: 'dashed', 
+      alignItems: 'center', 
+      justifyContent: 'center',
+      backgroundColor: theme.colors.surface + '80'
+  },
+
+  // 4. Misc
+  dateSubtext: { fontSize: 12, color: theme.colors.textSecondary, fontWeight: '500' },
+  addClubPill: { borderStyle: 'dashed', backgroundColor: 'transparent', width: 40, minWidth: 40, paddingHorizontal: 0 },
+
+  // 5. Club Pills Overrides
+  clubPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surface,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: theme.colors.surfaceHighlight,
+      minWidth: 80,
+      justifyContent: 'center',
+  },
+
+  // Legacy (Keep some for safety if cached)
   statCard: {
       backgroundColor: theme.colors.surface, padding: 16, borderRadius: 16,
       justifyContent: 'center', alignItems: 'center',
