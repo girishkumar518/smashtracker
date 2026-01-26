@@ -691,10 +691,49 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
     try {
         const { id, ...matchData } = match; 
         // Ensure match has clubId
-        await addDoc(collection(db, 'matches'), {
+        const docRef = await addDoc(collection(db, 'matches'), {
             ...matchData,
             clubId: activeClub.id
         });
+
+        // --- PUSH NOTIFICATION LOGIC ---
+        const playerIds = [...(match.team1 || []), ...(match.team2 || [])];
+        
+        // Find users to notify: involved in match, has pushToken, not current user
+        const recipients = members.filter(m => 
+            playerIds.includes(m.id) && 
+            m.pushToken && 
+            m.id !== user?.id
+        );
+
+        if (recipients.length > 0) {
+            const getName = (uid: string) => {
+                const m = members.find(u => u.id === uid);
+                if (m) return m.displayName;
+                if (match.guestNames && match.guestNames[uid]) return match.guestNames[uid];
+                const g = guests.find(u => u.id === uid);
+                if (g) return g.displayName;
+                return 'Unknown Player';
+            };
+
+            const t1Names = match.team1.map(getName).join(' & ');
+            const t2Names = match.team2.map(getName).join(' & ');
+            
+            let scoreStr = '';
+            if (match.scores && match.scores.length > 0) {
+                scoreStr = match.scores.map(s => `${s.team1Score}-${s.team2Score}`).join(', ');
+            }
+
+            const title = `Match Result: ${activeClub.name}`;
+            const body = `${t1Names} vs ${t2Names}\nScore: ${scoreStr}`;
+
+            recipients.forEach(r => {
+                 if (r.pushToken) {
+                     sendPushNotification(r.pushToken, title, body, { matchId: docRef.id });
+                 }
+            });
+        }
+
     } catch (e) {
         console.error("Error adding match: ", e);
     }

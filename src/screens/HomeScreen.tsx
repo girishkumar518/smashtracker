@@ -15,6 +15,10 @@ export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
 
+  // Stats View State
+  const [statsMode, setStatsMode] = useState<'day' | 'month'>('day');
+  const [statsDate, setStatsDate] = useState(new Date());
+
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -127,6 +131,118 @@ export default function HomeScreen() {
     };
   }, [matches, user, members, allUsers]);
 
+  const periodStats = useMemo(() => {
+    // 1. Calculate Time Range
+    const start = new Date(statsDate);
+    const end = new Date(statsDate);
+    
+    if (statsMode === 'day') {
+        start.setHours(0,0,0,0);
+        end.setHours(23,59,59,999);
+    } else {
+        // Month Mode: Start of month to End of month
+        start.setDate(1);
+        start.setHours(0,0,0,0);
+        
+        end.setMonth(end.getMonth() + 1);
+        end.setDate(0); // Last day of previous month (which is current month in this calc)
+        end.setHours(23,59,59,999);
+    }
+
+    const relevantMatches = matches?.filter(m => m.date >= start.getTime() && m.date <= end.getTime()) || [];
+
+    if (relevantMatches.length === 0) return null;
+
+    const playerStats: Record<string, { played: number; wins: number; points: number; name: string }> = {};
+
+    relevantMatches.forEach(m => {
+        const allPlayers = [...(m.team1 || []), ...(m.team2 || [])];
+        
+        // Sum scores safely
+        let t1Score = 0;
+        let t2Score = 0;
+        if (m.scores && Array.isArray(m.scores)) {
+            m.scores.forEach(s => {
+                t1Score += (typeof s.team1Score === 'number' ? s.team1Score : 0);
+                t2Score += (typeof s.team2Score === 'number' ? s.team2Score : 0);
+            });
+        }
+
+        allPlayers.forEach(pid => {
+           if (!playerStats[pid]) {
+               playerStats[pid] = { played: 0, wins: 0, points: 0, name: getPlayerName(pid, m) };
+           } else {
+               // Improve name resolution if possible
+               if (playerStats[pid].name === 'Unknown' || playerStats[pid].name === 'Guest Player') {
+                    const betterName = getPlayerName(pid, m);
+                    if (betterName !== 'Unknown' && betterName !== 'Guest Player') {
+                        playerStats[pid].name = betterName;
+                    }
+               }
+           }
+
+           playerStats[pid].played++;
+           
+           const inT1 = m.team1.includes(pid);
+           const inT2 = m.team2.includes(pid);
+           
+           // Check Winner
+           // Note: Legacy matches might lack correct winnerTeam, but new ones are fine.
+           // For stats, we rely on winnerTeam if set, or infer from scores if needed (handled in ClubContext usually, but good to be safe)
+           let won = false;
+           if (inT1 && m.winnerTeam === 1) won = true;
+           if (inT2 && m.winnerTeam === 2) won = true;
+           
+           if (won) {
+               playerStats[pid].wins++;
+           }
+
+           if (inT1) playerStats[pid].points += t1Score;
+           if (inT2) playerStats[pid].points += t2Score;
+        });
+    });
+
+    let mostPlayed = { name: '-', val: 0 };
+    let mostWins = { name: '-', val: 0 };
+    let mostPoints = { name: '-', val: 0 };
+
+    Object.values(playerStats).forEach(stat => {
+        if (stat.played > mostPlayed.val) mostPlayed = { name: stat.name, val: stat.played };
+        if (stat.wins > mostWins.val) mostWins = { name: stat.name, val: stat.wins };
+        if (stat.points > mostPoints.val) mostPoints = { name: stat.name, val: stat.points };
+    });
+
+    return {
+        totalMatches: relevantMatches.length,
+        mostPlayed,
+        mostWins,
+        mostPoints
+    };
+  }, [matches, statsMode, statsDate, getPlayerName]);
+
+  const changeDate = (direction: -1 | 1) => {
+      const newIn = new Date(statsDate);
+      if (statsMode === 'day') {
+          newIn.setDate(newIn.getDate() + direction);
+      } else {
+          newIn.setMonth(newIn.getMonth() + direction);
+      }
+      setStatsDate(newIn);
+  };
+
+  const formattedDateLabel = useMemo(() => {
+     const today = new Date();
+     if (statsMode === 'day') {
+         if (statsDate.toDateString() === today.toDateString()) return "Today";
+         const yest = new Date(); yest.setDate(yest.getDate() - 1);
+         if (statsDate.toDateString() === yest.toDateString()) return "Yesterday";
+         return statsDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+     } else {
+         if (statsDate.getMonth() === today.getMonth() && statsDate.getFullYear() === today.getFullYear()) return "This Month";
+         return statsDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+     }
+  }, [statsDate, statsMode]);
+
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
     if (refreshGlobalStats) {
@@ -229,6 +345,125 @@ export default function HomeScreen() {
                 </View>
              </View>
            )}
+
+           {/* Stats Summary Section */}
+           <View style={{ marginBottom: 20 }}>
+                {/* Header with Toggles */}
+                <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
+                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                        <Text style={styles.sectionTitle}>Highlights</Text>
+                    </View>
+                    
+                    {/* View Mode Toggle */}
+                    <View style={{flexDirection: 'row', backgroundColor: theme.colors.surfaceHighlight, borderRadius: 8, padding: 2}}>
+                        <TouchableOpacity 
+                            onPress={() => { setStatsMode('day'); setStatsDate(new Date()); }}
+                            style={{
+                                paddingHorizontal: 12, paddingVertical: 4, borderRadius: 6,
+                                backgroundColor: statsMode === 'day' ? theme.colors.surface : 'transparent',
+                                shadowColor: '#000', shadowOpacity: statsMode === 'day' ? 0.1 : 0, shadowRadius: 2, elevation: statsMode === 'day' ? 1 : 0
+                            }}
+                        >
+                            <Text style={{fontSize: 12, fontWeight: '600', color: statsMode === 'day' ? theme.colors.textPrimary : theme.colors.textSecondary}}>Day</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            onPress={() => { setStatsMode('month'); setStatsDate(new Date()); }}
+                            style={{
+                                paddingHorizontal: 12, paddingVertical: 4, borderRadius: 6,
+                                backgroundColor: statsMode === 'month' ? theme.colors.surface : 'transparent',
+                                shadowColor: '#000', shadowOpacity: statsMode === 'month' ? 0.1 : 0, shadowRadius: 2, elevation: statsMode === 'month' ? 1 : 0
+                            }}
+                        >
+                            <Text style={{fontSize: 12, fontWeight: '600', color: statsMode === 'month' ? theme.colors.textPrimary : theme.colors.textSecondary}}>Month</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                {/* Date Navigator */}
+                <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 16, backgroundColor: theme.colors.surface, padding: 8, borderRadius: 12}}>
+                    <TouchableOpacity onPress={() => changeDate(-1)} style={{padding: 4}}>
+                        <MaterialCommunityIcons name="chevron-left" size={24} color={theme.colors.textSecondary} />
+                    </TouchableOpacity>
+                    <Text style={{fontSize: 14, fontWeight: '600', color: theme.colors.textPrimary, marginHorizontal: 16, minWidth: 100, textAlign: 'center'}}>
+                        {formattedDateLabel}
+                    </Text>
+                    <TouchableOpacity onPress={() => changeDate(1)} style={{padding: 4}}>
+                        <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.textSecondary} />
+                    </TouchableOpacity>
+                </View>
+
+                {periodStats ? (
+                     <View style={{ gap: 12 }}>
+                        {/* Main Card: Matches Played */}
+                        <View style={[styles.statCard, { backgroundColor: theme.colors.surface, padding: 16 }]}>
+                             <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+                                 <View>
+                                     <Text style={{color: theme.colors.textSecondary, fontSize: 14, marginBottom: 4}}>Total Matches</Text>
+                                     <Text style={{color: theme.colors.textPrimary, fontSize: 32, fontWeight: '800'}}>{periodStats.totalMatches}</Text>
+                                 </View>
+                                 <View style={{backgroundColor: theme.colors.primary + '20', padding: 12, borderRadius: 50}}>
+                                     <MaterialCommunityIcons name="badminton" size={32} color={theme.colors.primary} />
+                                 </View>
+                             </View>
+                        </View>
+
+                        {/* Leaderboards Grid */}
+                        <View style={{flexDirection: 'row', gap: 12}}>
+                            {/* Most Wins */}
+                            <View style={[styles.statCard, {flex: 1, backgroundColor: theme.colors.surface, padding: 12}]}>
+                                 <View style={{flexDirection: 'row', gap: 6, marginBottom: 8}}>
+                                     <MaterialCommunityIcons name="trophy" size={16} color="#F59E0B" />
+                                     <Text style={{color: theme.colors.textSecondary, fontSize: 12, fontWeight: '600'}}>MOST WINS</Text>
+                                 </View>
+                                 <Text style={{color: theme.colors.textPrimary, fontSize: 16, fontWeight: 'bold', marginBottom: 2}} numberOfLines={1}>
+                                     {periodStats.mostWins.name}
+                                 </Text>
+                                 <Text style={{color: theme.colors.success, fontSize: 12, fontWeight: 'bold'}}>
+                                     {periodStats.mostWins.val} Wins
+                                 </Text>
+                            </View>
+
+                            {/* Most Points */}
+                            <View style={[styles.statCard, {flex: 1, backgroundColor: theme.colors.surface, padding: 12}]}>
+                                 <View style={{flexDirection: 'row', gap: 6, marginBottom: 8}}>
+                                     <MaterialCommunityIcons name="chart-line-variant" size={16} color={theme.colors.primary} />
+                                     <View>
+                                        <Text style={{color: theme.colors.textSecondary, fontSize: 12, fontWeight: '600'}}>TOP SCORER</Text>
+                                        <Text style={{color: theme.colors.textSecondary, fontSize: 8, fontStyle: 'italic'}}>(Total Pts Scored)</Text>
+                                     </View>
+                                 </View>
+                                 <Text style={{color: theme.colors.textPrimary, fontSize: 16, fontWeight: 'bold', marginBottom: 2}} numberOfLines={1}>
+                                     {periodStats.mostPoints.name}
+                                 </Text>
+                                 <Text style={{color: theme.colors.primary, fontSize: 12, fontWeight: 'bold'}}>
+                                     {periodStats.mostPoints.val} Pts
+                                 </Text>
+                            </View>
+                        </View>
+                        
+                         {/* Most Played */}
+                         <View style={[styles.statCard, {flex: 1, backgroundColor: theme.colors.surface, padding: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}]}>
+                             <View>
+                                 <Text style={{color: theme.colors.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 2}}>MOST ACTIVE</Text>
+                                 <Text style={{color: theme.colors.textPrimary, fontSize: 16, fontWeight: 'bold'}}>
+                                     {periodStats.mostPlayed.name}
+                                 </Text>
+                             </View>
+                             <View style={{alignItems: 'flex-end'}}>
+                                 <Text style={{color: theme.colors.textPrimary, fontSize: 18, fontWeight: 'bold'}}>
+                                     {periodStats.mostPlayed.val}
+                                 </Text>
+                                 <Text style={{color: theme.colors.textSecondary, fontSize: 10}}>Matches</Text>
+                             </View>
+                        </View>
+                    </View>
+                ) : (
+                    <View style={[styles.statCard, { backgroundColor: theme.colors.surface, padding: 24, alignItems: 'center', justifyContent: 'center' }]}>
+                        <MaterialCommunityIcons name="calendar-blank" size={40} color={theme.colors.textSecondary} style={{opacity: 0.5, marginBottom: 12}} />
+                        <Text style={{color: theme.colors.textSecondary, textAlign: 'center'}}>No matches played on this {statsMode === 'day' ? 'date' : 'month'}.</Text>
+                    </View>
+                )}
+             </View>
 
           {/* Club Switcher / List */}
           <View style={{ marginBottom: 16 }}>
@@ -648,6 +883,16 @@ const createStyles = (theme: Theme) => StyleSheet.create({
   startBtnText: { color: 'white', fontWeight: '900', fontSize: 16, letterSpacing: 1 },
 
   // Club List Styles
+  statCard: {
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: theme.colors.surfaceHighlight, // Use theme color properly here if needed, but safe default
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 2,
+  },
   clubPill: {
       flexDirection: 'row',
       alignItems: 'center',
