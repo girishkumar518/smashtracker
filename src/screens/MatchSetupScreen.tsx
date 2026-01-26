@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, Switch, Modal, FlatList, TouchableOpacity, ScrollView, Alert, StatusBar, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../components/Button';
 import { useNavigation } from '@react-navigation/native';
 import { useClub } from '../context/ClubContext';
+import { useAuth } from '../context/AuthContext';
 import { User } from '../models/types';
 import Card from '../components/Card';
 import { useTheme } from '../context/ThemeContext';
@@ -13,6 +14,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 export default function MatchSetupScreen() {
   const navigation = useNavigation<any>();
   const { members, guests } = useClub();
+  const { user } = useAuth();
   const { theme, isDark } = useTheme();
   
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -28,10 +30,23 @@ export default function MatchSetupScreen() {
   const [goldenPoint, setGoldenPoint] = useState(false); 
 
   // Selected Players
-  const [p1, setP1] = useState<User | null>(members[0]); 
+  const [p1, setP1] = useState<User | null>(null); 
   const [p2, setP2] = useState<User | null>(null);
   const [p3, setP3] = useState<User | null>(null);
   const [p4, setP4] = useState<User | null>(null);
+
+  // Auto-select current user as Player 1 when members load
+  useEffect(() => {
+    if (!p1 && user && members.length > 0) {
+        const currentUser = members.find(m => m.id === user.id);
+        if (currentUser) {
+            setP1(currentUser);
+        } else {
+            // Fallback to first member if current user not found (unlikely)
+            setP1(members[0]);
+        }
+    }
+  }, [members, user, p1]);
 
   // Modal State
   const [modalVisible, setModalVisible] = useState(false);
@@ -318,6 +333,13 @@ export default function MatchSetupScreen() {
                 data={allPlayers} // Combined list
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={{ paddingBottom: 40 }}
+                ListEmptyComponent={
+                    <View style={{padding: 32, alignItems: 'center', justifyContent: 'center'}}>
+                        <MaterialCommunityIcons name="account-search" size={48} color={theme.colors.textSecondary} style={{opacity: 0.5, marginBottom: 12}} />
+                        <Text style={{color: theme.colors.textSecondary, textAlign: 'center', fontSize: 16}}>No players found.</Text>
+                        <Text style={{color: theme.colors.textSecondary, textAlign: 'center', fontSize: 14, marginTop: 4}}>Invite members to your club to see them here.</Text>
+                    </View>
+                }
                 renderItem={({ item }) => {
                 const isSelected = [p1?.id, p2?.id, p3?.id, p4?.id].includes(item.id);
                 const isGuest = item.id.startsWith('guest_');

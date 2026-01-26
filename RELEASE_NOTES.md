@@ -1,3 +1,10 @@
+# SmashTracker Release Notes - v1.0.1 (Bug Fixes)
+
+## 🐛 Bug Fixes
+- **Player Visibility**: Fixed an issue where club members could not see other players when creating a match.
+  - Updated `firestore.rules` to allow authenticated users to view player profiles (specifically names and ranks).
+  - Updated `firebase.json` to properly include Firestore configuration for deployment.
+
 # SmashTracker Release Notes - v1.0.0 (Production Release)
 
 ## 🚀 Key Highlights
