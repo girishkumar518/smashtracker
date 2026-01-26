@@ -22,8 +22,8 @@ export default function MatchSetupScreen() {
   const allPlayers = useMemo(() => [...members, ...guests], [members, guests]);
 
   const [isDoubles, setIsDoubles] = useState(false);
-  const [scoreMode, setScoreMode] = useState<'live' | 'manual'>('live');
-  const [matchType, setMatchType] = useState<1 | 3>(3); 
+  const [scoreMode, setScoreMode] = useState<'live' | 'manual'>('manual');
+  const [matchType, setMatchType] = useState<1 | 3>(1); 
   
   // Game Settings
   const [pointsPerSet, setPointsPerSet] = useState<11 | 21 | 30>(21);
@@ -174,17 +174,6 @@ export default function MatchSetupScreen() {
         {/* Mode Selector - Richer Chips */}
         <View style={styles.richModeContainer}>
             <TouchableOpacity 
-                style={[styles.richModeBtn, scoreMode === 'live' && styles.richModeActive]} 
-                onPress={() => setScoreMode('live')}>
-                <MaterialCommunityIcons 
-                    name="lightning-bolt" 
-                    size={20} 
-                    color={scoreMode === 'live' ? 'white' : theme.colors.textSecondary} 
-                />
-                <Text style={[styles.richModeText, scoreMode === 'live' && {color: 'white'}]}>Live Score</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
                 style={[styles.richModeBtn, scoreMode === 'manual' && styles.richModeActive]} 
                 onPress={() => setScoreMode('manual')}>
                  <MaterialCommunityIcons 
@@ -193,6 +182,17 @@ export default function MatchSetupScreen() {
                     color={scoreMode === 'manual' ? 'white' : theme.colors.textSecondary} 
                 />
                 <Text style={[styles.richModeText, scoreMode === 'manual' && {color: 'white'}]}>Manual Entry</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+                style={[styles.richModeBtn, scoreMode === 'live' && styles.richModeActive]} 
+                onPress={() => setScoreMode('live')}>
+                <MaterialCommunityIcons 
+                    name="lightning-bolt" 
+                    size={20} 
+                    color={scoreMode === 'live' ? 'white' : theme.colors.textSecondary} 
+                />
+                <Text style={[styles.richModeText, scoreMode === 'live' && {color: 'white'}]}>Live Score</Text>
             </TouchableOpacity>
         </View>
 
