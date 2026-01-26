@@ -154,57 +154,85 @@ export default function HomeScreen() {
     if (relevantMatches.length === 0) return null;
 
     const playerStats: Record<string, { played: number; wins: number; points: number; name: string }> = {};
+    const partnershipStats: Record<string, { wins: number; name: string }> = {};
+    
+    // Sort ascending for streak calculation
+    const sortedMatches = [...relevantMatches].sort((a, b) => a.date - b.date);
+    const currentStreaks: Record<string, number> = {};
+    const bestStreaks: Record<string, number> = {};
+    const playerNames: Record<string, string> = {}; // cache names
 
-    relevantMatches.forEach(m => {
-        const allPlayers = [...(m.team1 || []), ...(m.team2 || [])];
+    sortedMatches.forEach(m => {
+        const t1 = (m.team1 || []);
+        const t2 = (m.team2 || []);
+        const allPlayers = [...t1, ...t2];
         
-        // Sum scores safely
-        let t1Score = 0;
-        let t2Score = 0;
-        if (m.scores && Array.isArray(m.scores)) {
-            m.scores.forEach(s => {
-                t1Score += (typeof s.team1Score === 'number' ? s.team1Score : 0);
-                t2Score += (typeof s.team2Score === 'number' ? s.team2Score : 0);
-            });
-        }
+        // Resolve Names
+        allPlayers.forEach(pid => {
+            if (!playerNames[pid] || playerNames[pid] === 'Unknown' || playerNames[pid] === 'Guest Player') {
+                 const name = getPlayerName(pid, m);
+                 if (name && name !== 'Unknown' && name !== 'Guest Player') {
+                     playerNames[pid] = name;
+                 } else if (!playerNames[pid]) {
+                     playerNames[pid] = 'Unknown';
+                 }
+            }
+        });
 
+        // Determine Winner Team
+        let winnerTeam = m.winnerTeam;
+        const winnerPlayers = winnerTeam === 1 ? t1 : (winnerTeam === 2 ? t2 : []);
+        const loserPlayers = winnerTeam === 1 ? t2 : (winnerTeam === 2 ? t1 : []);
+        
+        // --- 1. Basic Stats & Streaks ---
         allPlayers.forEach(pid => {
            if (!playerStats[pid]) {
-               playerStats[pid] = { played: 0, wins: 0, points: 0, name: getPlayerName(pid, m) };
-           } else {
-               // Improve name resolution if possible
-               if (playerStats[pid].name === 'Unknown' || playerStats[pid].name === 'Guest Player') {
-                    const betterName = getPlayerName(pid, m);
-                    if (betterName !== 'Unknown' && betterName !== 'Guest Player') {
-                        playerStats[pid].name = betterName;
-                    }
-               }
+               playerStats[pid] = { played: 0, wins: 0, points: 0, name: playerNames[pid] };
+               currentStreaks[pid] = 0;
+               bestStreaks[pid] = 0;
            }
+           // Update Name if better found
+           playerStats[pid].name = playerNames[pid];
 
            playerStats[pid].played++;
            
-           const inT1 = m.team1.includes(pid);
-           const inT2 = m.team2.includes(pid);
-           
-           // Check Winner
-           // Note: Legacy matches might lack correct winnerTeam, but new ones are fine.
-           // For stats, we rely on winnerTeam if set, or infer from scores if needed (handled in ClubContext usually, but good to be safe)
-           let won = false;
-           if (inT1 && m.winnerTeam === 1) won = true;
-           if (inT2 && m.winnerTeam === 2) won = true;
-           
-           if (won) {
+           if (winnerPlayers.includes(pid)) {
                playerStats[pid].wins++;
+               playerStats[pid].points += 3; // Win 3 pts
+               
+               // Streak Update
+               currentStreaks[pid] = (currentStreaks[pid] || 0) + 1;
+               if (currentStreaks[pid] > bestStreaks[pid]) {
+                   bestStreaks[pid] = currentStreaks[pid];
+               }
+           } else {
+               playerStats[pid].points += 1; // Play 1 pt
+               // Streak Reset
+               currentStreaks[pid] = 0;
            }
-
-           if (inT1) playerStats[pid].points += t1Score;
-           if (inT2) playerStats[pid].points += t2Score;
         });
+
+        // --- 2. Partnership Stats (Doubles Only) ---
+        if (t1.length === 2 && t2.length === 2) {
+             const winningPair = winnerTeam === 1 ? t1 : (winnerTeam === 2 ? t2 : null);
+             if (winningPair) {
+                 const pairId = [...winningPair].sort().join('_'); // Unique ID for pair
+                 if (!partnershipStats[pairId]) {
+                     const p1Name = playerNames[winningPair[0]]?.split(' ')[0] || 'Unknown';
+                     const p2Name = playerNames[winningPair[1]]?.split(' ')[0] || 'Unknown';
+                     partnershipStats[pairId] = { wins: 0, name: `${p1Name} & ${p2Name}` };
+                 }
+                 partnershipStats[pairId].wins++;
+             }
+        }
     });
 
+    // FIND LEADERS
     let mostPlayed = { name: '-', val: 0 };
     let mostWins = { name: '-', val: 0 };
     let mostPoints = { name: '-', val: 0 };
+    let bestPartnership = { name: '-', val: 0 };
+    let longestStreak = { name: '-', val: 0 };
 
     Object.values(playerStats).forEach(stat => {
         if (stat.played > mostPlayed.val) mostPlayed = { name: stat.name, val: stat.played };
@@ -212,11 +240,25 @@ export default function HomeScreen() {
         if (stat.points > mostPoints.val) mostPoints = { name: stat.name, val: stat.points };
     });
 
+    Object.entries(bestStreaks).forEach(([pid, streak]) => {
+         if (streak > longestStreak.val) {
+             longestStreak = { name: playerNames[pid] || 'Unknown', val: streak };
+         }
+    });
+
+    Object.values(partnershipStats).forEach(stat => {
+        if (stat.wins > bestPartnership.val) {
+            bestPartnership = { name: stat.name, val: stat.wins };
+        }
+    });
+
     return {
         totalMatches: relevantMatches.length,
         mostPlayed,
         mostWins,
-        mostPoints
+        mostPoints,
+        bestPartnership,
+        longestStreak
     };
   }, [matches, statsMode, statsDate, getPlayerName]);
 
@@ -426,10 +468,10 @@ export default function HomeScreen() {
                             {/* Most Points */}
                             <View style={[styles.statCard, {flex: 1, backgroundColor: theme.colors.surface, padding: 12}]}>
                                  <View style={{flexDirection: 'row', gap: 6, marginBottom: 8}}>
-                                     <MaterialCommunityIcons name="chart-line-variant" size={16} color={theme.colors.primary} />
+                                     <MaterialCommunityIcons name="star-circle" size={16} color={theme.colors.primary} />
                                      <View>
-                                        <Text style={{color: theme.colors.textSecondary, fontSize: 12, fontWeight: '600'}}>TOP SCORER</Text>
-                                        <Text style={{color: theme.colors.textSecondary, fontSize: 8, fontStyle: 'italic'}}>(Total Pts Scored)</Text>
+                                        <Text style={{color: theme.colors.textSecondary, fontSize: 12, fontWeight: '600'}}>TOP POINTS</Text>
+                                        <Text style={{color: theme.colors.textSecondary, fontSize: 8, fontStyle: 'italic'}}>(Win 3, Play 1)</Text>
                                      </View>
                                  </View>
                                  <Text style={{color: theme.colors.textPrimary, fontSize: 16, fontWeight: 'bold', marginBottom: 2}} numberOfLines={1}>
@@ -437,6 +479,36 @@ export default function HomeScreen() {
                                  </Text>
                                  <Text style={{color: theme.colors.primary, fontSize: 12, fontWeight: 'bold'}}>
                                      {periodStats.mostPoints.val} Pts
+                                 </Text>
+                            </View>
+                        </View>
+                        {/* Leaderboards Grid Row 2 */}
+                        <View style={{flexDirection: 'row', gap: 12}}>
+                             {/* Best Partnership */}
+                             <View style={[styles.statCard, {flex: 1, backgroundColor: theme.colors.surface, padding: 12}]}>
+                                 <View style={{flexDirection: 'row', gap: 6, marginBottom: 8}}>
+                                     <MaterialCommunityIcons name="account-group" size={16} color={theme.colors.secondary} />
+                                     <Text style={{color: theme.colors.textSecondary, fontSize: 12, fontWeight: '600'}}>BEST DUO</Text>
+                                 </View>
+                                 <Text style={{color: theme.colors.textPrimary, fontSize: 14, fontWeight: 'bold', marginBottom: 2}} numberOfLines={1}>
+                                     {periodStats.bestPartnership.name}
+                                 </Text>
+                                 <Text style={{color: theme.colors.secondary, fontSize: 12, fontWeight: 'bold'}}>
+                                     {periodStats.bestPartnership.val} Wins Together
+                                 </Text>
+                            </View>
+
+                            {/* Longest Streak */}
+                            <View style={[styles.statCard, {flex: 1, backgroundColor: theme.colors.surface, padding: 12}]}>
+                                 <View style={{flexDirection: 'row', gap: 6, marginBottom: 8}}>
+                                     <MaterialCommunityIcons name="fire" size={16} color="#FF4500" />
+                                     <Text style={{color: theme.colors.textSecondary, fontSize: 12, fontWeight: '600'}}>HOT STREAK</Text>
+                                 </View>
+                                 <Text style={{color: theme.colors.textPrimary, fontSize: 16, fontWeight: 'bold', marginBottom: 2}} numberOfLines={1}>
+                                     {periodStats.longestStreak.name}
+                                 </Text>
+                                 <Text style={{color: "#FF4500", fontSize: 12, fontWeight: 'bold'}}>
+                                     {periodStats.longestStreak.val} Wins in a Row
                                  </Text>
                             </View>
                         </View>

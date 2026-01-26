@@ -20,7 +20,8 @@ export default function ClubManagementScreen() {
     removeMember,
     deleteClub,
     leaveClub,
-    guests,
+    guests, // Context-provided guests (Merged from History + Active) - NOT USED for Management List to avoid "undeletable" ghosts
+    matches,
     updateGuestToUser,
     addGuestPlayer,
     removeGuestPlayer,
@@ -45,6 +46,18 @@ export default function ClubManagementScreen() {
   const [editingClubName, setEditingClubName] = useState('');
 
   const styles = useMemo(() => createStyles(theme), [theme]);
+
+  // Derive "Manageable Guests" strictly from the Club Document
+  // This ensures that when we delete a guest, they disappear from this list immediately,
+  // even if they still exist in historical match data.
+  const manageableGuests = useMemo(() => {
+      if (!activeClub?.guestPlayers) return [];
+      return activeClub.guestPlayers.map(g => ({
+          id: g.id,
+          displayName: g.name,
+          email: 'Guest Player' // UI placeholder
+      }));
+  }, [activeClub?.guestPlayers]);
 
   // Simple admin check: if user is owner or has admin role in members array
   const isOwner = activeClub?.ownerId === user?.id;
@@ -195,9 +208,24 @@ export default function ClubManagementScreen() {
   };
 
   const handleDeleteGuest = (guest: any) => {
+    // Check for history locally
+    const hasHistory = matches.some(m => 
+        (m.team1 && m.team1.includes(guest.id)) || 
+        (m.team2 && m.team2.includes(guest.id))
+    );
+
+    if (hasHistory) {
+         Alert.alert(
+            "Cannot Delete Guest", 
+            `"${guest.displayName}" has played matches in this club.\n\nTo preserve data integrity, you cannot delete a guest with active history.\n\nPlease use the 'Link' button to merge their stats to a real member first.`,
+            [{ text: "OK" }]
+        );
+        return;
+    }
+
     Alert.alert(
         "Delete Guest", 
-        `Are you sure you want to delete "${guest.displayName}"?\n\nThis will NOT delete their match history from matches, but they will be removed from your player list.`,
+        `Are you sure you want to delete "${guest.displayName}"?\n\nThey have no match history and will be removed permanently.`,
         [
             { text: "Cancel", style: "cancel" },
             { 
@@ -408,7 +436,7 @@ export default function ClubManagementScreen() {
           {isAdmin && (
              <View style={styles.section}>
                 <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
-                    <Text style={[styles.sectionTitle, {marginBottom: 0}]}>Guest Players ({guests.length})</Text>
+                    <Text style={[styles.sectionTitle, {marginBottom: 0}]}>Guest Players ({manageableGuests.length})</Text>
                     <Button 
                         title="Add Guest" 
                         size="small" 
@@ -417,10 +445,10 @@ export default function ClubManagementScreen() {
                         textStyle={{fontSize: 12}}
                     />
                 </View>
-                {guests.length > 0 ? (
+                {manageableGuests.length > 0 ? (
                     <Card style={{padding: 0, backgroundColor: theme.colors.surface}}>
                         <FlatList
-                            data={guests}
+                            data={manageableGuests}
                             renderItem={renderGuest}
                             keyExtractor={item => item.id}
                             scrollEnabled={false}

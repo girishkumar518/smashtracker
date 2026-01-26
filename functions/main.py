@@ -85,10 +85,31 @@ def merge_guest_history(req: https_fn.CallableRequest) -> dict:
 
         print(f"Successfully merged {update_count} matches.")
 
-        # 4. Remove guest from Club's guestPlayers list
+        # 3.5. Verification: Check that history is truly gone (as requested)
+        # We verify that no matches in this club contain the guest_id anymore.
+        
+        verify_q1 = matches_ref.where(filter=firestore.FieldFilter("clubId", "==", club_id))\
+                               .where(filter=firestore.FieldFilter("team1", "array_contains", guest_id))\
+                               .limit(1).get()
+                               
+        verify_q2 = matches_ref.where(filter=firestore.FieldFilter("clubId", "==", club_id))\
+                               .where(filter=firestore.FieldFilter("team2", "array_contains", guest_id))\
+                               .limit(1).get()
+
+        if len(verify_q1) > 0 or len(verify_q2) > 0:
+            print(f"Verification Failed: Guest {guest_id} still exists in matches after merge attempt.")
+            raise https_fn.HttpsError(
+                code=https_fn.FunctionsErrorCode.DATA_LOSS,
+                message="Merge verification failed: Guest history was not fully migrated. Guest not deleted."
+            )
+
+        print("Verification Successful: Guest history migrated.")
+
+        # 4. Remove guest from Club's guestPlayers list (Permanent Deletion)
         try:
             club_ref = db.collection("clubs").document(club_id)
             club_snap = club_ref.get()
+            
             if club_snap.exists:
                 club_data = club_snap.to_dict()
                 guests = club_data.get("guestPlayers", [])
@@ -98,11 +119,19 @@ def merge_guest_history(req: https_fn.CallableRequest) -> dict:
                 
                 if len(guests) != len(new_guests):
                     club_ref.update({"guestPlayers": new_guests})
-                    print(f"Removed guest {guest_id} from club {club_id}")
+                    print(f"PERMANENT DELETION: Successfully removed guest {guest_id} from club {club_id}")
+                else:
+                    print(f"WARNING: Guest {guest_id} was not found in the club roster. Deletion skipped.")
+            else:
+                print(f"ERROR: Club {club_id} not found during guest deletion.")
+                
         except Exception as e:
-            print(f"Error removing guest record: {e}")
-            # Don't fail the whole function if this part fails, as data is already merged
-            pass
+            # If deletion fails, we define this as a critical failure for the operation
+            print(f"CRITICAL ERROR merging guest history - failed to delete guest: {e}")
+            raise https_fn.HttpsError(
+                code=https_fn.FunctionsErrorCode.INTERNAL,
+                message="History migrated, but failed to permanently delete guest from roster."
+            )
 
         return {"success": True, "updatedMatches": update_count}
 
