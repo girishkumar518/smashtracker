@@ -19,6 +19,7 @@ export const tokens = {
     black: '#000000',
     
     red500: '#E53E3E',
+    green500: '#48BB78',
     
     gold500: '#D69E2E',
   }
@@ -41,6 +42,7 @@ export const lightTheme = {
     
     border: tokens.colors.gray200,
     error: tokens.colors.red500,
+    success: tokens.colors.green500,
     
     court: {
       background: tokens.colors.teal600,
@@ -66,6 +68,7 @@ export const darkTheme = {
     
     border: tokens.colors.gray700,
     error: tokens.colors.red500,
+    success: tokens.colors.green500,
     
     court: {
       background: tokens.colors.teal700,

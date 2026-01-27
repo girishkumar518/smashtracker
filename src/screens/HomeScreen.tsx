@@ -161,6 +161,10 @@ export default function HomeScreen() {
     const playerStats: Record<string, { played: number; wins: number; points: number; name: string }> = {};
     const partnershipStats: Record<string, { wins: number; name: string }> = {};
     
+    // User Specific Stats for Period
+    const myStats = { played: 0, wins: 0, losses: 0, points: 0 };
+    const myPartners: Record<string, { played: number, wins: number, name: string }> = {};
+
     // Sort ascending for streak calculation
     const sortedMatches = [...relevantMatches].sort((a, b) => a.date - b.date);
     const currentStreaks: Record<string, number> = {};
@@ -171,6 +175,7 @@ export default function HomeScreen() {
         const t1 = (m.team1 || []);
         const t2 = (m.team2 || []);
         const allPlayers = [...t1, ...t2];
+        const userId = user?.id;
         
         // Resolve Names
         allPlayers.forEach(pid => {
@@ -219,6 +224,30 @@ export default function HomeScreen() {
            }
         });
 
+        // --- 1.5 Personal Stats Calculation ---
+        if (userId && (t1.includes(userId) || t2.includes(userId))) {
+            const myTeam = t1.includes(userId) ? t1 : t2;
+            // @ts-ignore
+            const iWon = (t1.includes(userId) && winnerTeam == 1) || (t2.includes(userId) && winnerTeam == 2);
+            
+            myStats.played++;
+            if (iWon) myStats.wins++; else myStats.losses++;
+            myStats.points += iWon ? 3 : 1;
+
+            // Partner logic
+            if (myTeam.length > 1) {
+                const partnerId = myTeam.find(id => id !== userId);
+                if (partnerId) {
+                    if (!myPartners[partnerId]) myPartners[partnerId] = { played: 0, wins: 0, name: playerNames[partnerId] || 'Unknown' };
+                    // update partner name if unknown
+                    if (myPartners[partnerId].name === 'Unknown' && playerNames[partnerId]) myPartners[partnerId].name = playerNames[partnerId];
+
+                    myPartners[partnerId].played++;
+                    if (iWon) myPartners[partnerId].wins++;
+                }
+            }
+        }
+
         // --- 2. Partnership Stats (Doubles Only) ---
         if (t1.length === 2 && t2.length === 2) {
              const winningPair = winnerTeam === 1 ? t1 : (winnerTeam === 2 ? t2 : null);
@@ -240,6 +269,17 @@ export default function HomeScreen() {
     let mostPoints = { name: '-', val: 0 };
     let bestPartnership = { name: '-', val: 0 };
     let longestStreak = { name: '-', val: 0 };
+
+    // Find PERSONAL Best Partner
+    let myBestPartner = null;
+    let maxRate = -1;
+    Object.values(myPartners).forEach(p => {
+        const rate = p.wins / p.played;
+        if (rate > maxRate || (rate === maxRate && p.played > (myBestPartner?.played || 0))) {
+            maxRate = rate;
+            myBestPartner = { ...p, rate: Math.round(rate * 100) };
+        }
+    });
 
     Object.values(playerStats).forEach(stat => {
         if (stat.played > mostPlayed.val) mostPlayed = { name: stat.name, val: stat.played };
@@ -265,7 +305,9 @@ export default function HomeScreen() {
         mostWins,
         mostPoints,
         bestPartnership,
-        longestStreak
+        longestStreak,
+        myStats, // Exposed
+        myBestPartner // Exposed
     };
   }, [matches, statsMode, statsDate, getPlayerName]);
 
@@ -561,7 +603,87 @@ export default function HomeScreen() {
                 </View>
            )}
            
-           {/* Detailed List or further content could go here, but kept clean for now */}
+           {/* 6. My Stats & Best Partner (Period Context) */}
+           {periodStats && (periodStats as any).myStats && (periodStats as any).myStats.played > 0 && (
+             <View style={{ marginHorizontal: 20, marginBottom: 24 }}>
+                <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
+                    <Text style={[styles.sectionTitle, {marginBottom: 0}]}>My Performance</Text>
+                    <View style={{backgroundColor: theme.colors.surfaceHighlight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4}}>
+                        <Text style={{fontSize: 10, fontWeight: '700', color: theme.colors.textSecondary}}>
+                            {statsMode === 'overall' ? 'ALL TIME' : formattedDateLabel.toUpperCase()}
+                        </Text>
+                    </View>
+                </View>
+                
+                {/* Rich Stats Card */}
+                <View style={styles.performanceContainer}>
+                    <View style={styles.performanceRow}>
+                        {/* Played */}
+                        <View style={styles.perfItem}>
+                            <View style={[styles.perfIcon, {backgroundColor: theme.colors.primary + '15'}]}>
+                                <Ionicons name="game-controller" size={16} color={theme.colors.primary} />
+                            </View>
+                            <Text style={styles.perfValue}>{(periodStats as any).myStats.played}</Text>
+                            <Text style={styles.perfLabel}>Played</Text>
+                        </View>
+                        
+                        <View style={styles.vertDivider} />
+
+                        {/* Wins */}
+                        <View style={styles.perfItem}>
+                             <View style={[styles.perfIcon, {backgroundColor: theme.colors.success + '15'}]}>
+                                <Ionicons name="trophy" size={16} color={theme.colors.success} />
+                            </View>
+                            <Text style={[styles.perfValue, {color: theme.colors.success}]}>{(periodStats as any).myStats.wins}</Text>
+                            <Text style={styles.perfLabel}>Wins</Text>
+                        </View>
+
+                        <View style={styles.vertDivider} />
+
+                        {/* Losses */}
+                        <View style={styles.perfItem}>
+                             <View style={[styles.perfIcon, {backgroundColor: theme.colors.error + '15'}]}>
+                                <Ionicons name="close-circle" size={16} color={theme.colors.error} />
+                            </View>
+                            <Text style={[styles.perfValue, {color: theme.colors.error}]}>{(periodStats as any).myStats.losses}</Text>
+                            <Text style={styles.perfLabel}>Losses</Text>
+                        </View>
+                    </View>
+
+                     {/* Win Rate Bar */}
+                     <View style={{marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: theme.colors.border}}>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6}}>
+                             <Text style={{fontSize: 11, color: theme.colors.textSecondary, fontWeight: '600'}}>WIN RATE</Text>
+                             <Text style={{fontSize: 11, fontWeight:'bold', color: theme.colors.textPrimary}}>
+                                {Math.round(((periodStats as any).myStats.wins / (periodStats as any).myStats.played) * 100)}%
+                             </Text>
+                        </View>
+                        <View style={{height: 6, backgroundColor: theme.colors.surfaceHighlight, borderRadius: 3, overflow: 'hidden'}}>
+                             <View style={{width: `${Math.round(((periodStats as any).myStats.wins / (periodStats as any).myStats.played) * 100)}%`, height: '100%', backgroundColor: theme.colors.success}} />
+                        </View>
+                     </View>
+                </View>
+
+                {/* Best Partner Card (Period) - Integrated Look */}
+                {(periodStats as any).myBestPartner && (
+                    <View style={[styles.partnerCard, { marginHorizontal: 0, marginTop: 0, marginBottom: 0 }]}>
+                       <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                           <View style={styles.avatarSmall}>
+                              <Text style={styles.avatarTextSmall}>{(periodStats as any).myBestPartner.name.charAt(0)}</Text>
+                           </View>
+                           <View style={{marginLeft: 12}}>
+                              <Text style={styles.partnerLabel}>BEST PARTNER</Text>
+                              <Text style={styles.partnerName}>{(periodStats as any).myBestPartner.name}</Text>
+                           </View>
+                       </View>
+                       <View style={{alignItems: 'flex-end'}}>
+                          <Text style={styles.partnerRate}>{(periodStats as any).myBestPartner.rate}%</Text>
+                          <Text style={styles.partnerSub}>Win Rate</Text>
+                       </View>
+                    </View>
+                )}
+             </View>
+           )}
            
            {!activeClub ? (
             <View style={styles.emptyState}>
@@ -630,25 +752,6 @@ export default function HomeScreen() {
                       </View>
                       <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
                   </TouchableOpacity>
-              )}
-
-              {/* Best Partner Card (Restored) */}
-              {stats.bestPartner && (
-                <View style={[styles.partnerCard, { marginHorizontal: 16, marginTop: 12, marginBottom: 0 }]}>
-                   <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                       <View style={styles.avatarSmall}>
-                          <Text style={styles.avatarTextSmall}>{(stats.bestPartner as any)?.name?.charAt(0) || '?'}</Text>
-                       </View>
-                       <View style={{marginLeft: 12}}>
-                          <Text style={styles.partnerLabel}>BEST PARTNER</Text>
-                          <Text style={styles.partnerName}>{(stats.bestPartner as any)?.name || 'Unknown'}</Text>
-                       </View>
-                   </View>
-                   <View style={{alignItems: 'flex-end'}}>
-                      <Text style={styles.partnerRate}>{(stats.bestPartner as any)?.rate || 0}%</Text>
-                      <Text style={styles.partnerSub}>Win Rate</Text>
-                   </View>
-                </View>
               )}
 
               {/* Start Button */}
@@ -1023,5 +1126,47 @@ const createStyles = (theme: Theme) => StyleSheet.create({
   adminTip: { textAlign: 'center', marginTop: 8, color: theme.colors.textSecondary, fontSize: 10, fontStyle: 'italic' },
   
   footer: { alignItems: 'center', marginBottom: 20, marginTop: 20 },
-  footerText: { color: theme.colors.textSecondary, fontSize: 12, fontWeight: '600' }
+  footerText: { color: theme.colors.textSecondary, fontSize: 12, fontWeight: '600' },
+
+  // -- Performance Grid --
+  performanceContainer: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 16,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
+      borderWidth: 1, 
+      borderColor: theme.colors.surfaceHighlight
+  },
+  performanceRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between'
+  },
+  perfItem: {
+      flex: 1,
+      alignItems: 'center',
+  },
+  perfLabel: {
+      fontSize: 11,
+      color: theme.colors.textSecondary,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      marginBottom: 4,
+      marginTop: 8
+  },
+  perfValue: {
+      fontSize: 24,
+      fontWeight: '800',
+      color: theme.colors.textPrimary
+  },
+  perfIcon: {
+      width: 32, height: 32, borderRadius: 16,
+      justifyContent: 'center', alignItems: 'center',
+      marginBottom: 0
+  }
 });
