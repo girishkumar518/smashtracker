@@ -39,6 +39,24 @@ export default function LiveScoreScreen() {
 
   // Animation
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scoreScale1 = useRef(new Animated.Value(1)).current;
+  const scoreScale2 = useRef(new Animated.Value(1)).current;
+
+  // Pulse Animation for Server
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  
+  // Service Glide Animation
+  const serviceAnimX = useRef(new Animated.Value(0)).current; 
+  const serviceAnimY = useRef(new Animated.Value(0)).current;
+
+  // Floating +1 Animation
+  const [showPlusOne1, setShowPlusOne1] = useState(false);
+  const [showPlusOne2, setShowPlusOne2] = useState(false);
+  const plusOneY1 = useRef(new Animated.Value(0)).current;
+  const plusOneOpacity1 = useRef(new Animated.Value(0)).current;
+  const plusOneY2 = useRef(new Animated.Value(0)).current;
+  const plusOneOpacity2 = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     Animated.timing(fadeAnim, {
         toValue: 1,
@@ -46,7 +64,39 @@ export default function LiveScoreScreen() {
         useNativeDriver: true,
         easing: Easing.out(Easing.cubic),
     }).start();
+    
+    // Start looping pulse
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.25, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true })
+      ])
+    ).start();
   }, []);
+
+
+
+  const triggerScoreAnim = (team: 1 | 2) => {
+      const anim = team === 1 ? scoreScale1 : scoreScale2;
+      Animated.sequence([
+          Animated.timing(anim, { toValue: 1.5, duration: 150, useNativeDriver: true, easing: Easing.out(Easing.quad) }),
+          Animated.spring(anim, { toValue: 1, friction: 5, useNativeDriver: true })
+      ]).start();
+      
+      // Trigger Floating +1
+      const setVisible = team === 1 ? setShowPlusOne1 : setShowPlusOne2;
+      const yAnim = team === 1 ? plusOneY1 : plusOneY2;
+      const opAnim = team === 1 ? plusOneOpacity1 : plusOneOpacity2;
+
+      setVisible(true);
+      yAnim.setValue(0);
+      opAnim.setValue(1);
+
+      Animated.parallel([
+          Animated.timing(yAnim, { toValue: -30, duration: 600, useNativeDriver: true }),
+          Animated.timing(opAnim, { toValue: 0, duration: 600, useNativeDriver: true })
+      ]).start(() => setVisible(false));
+  };
 
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -142,6 +192,46 @@ export default function LiveScoreScreen() {
   const [resetModalVisible, setResetModalVisible] = useState(false);
   const [endMatchModalVisible, setEndMatchModalVisible] = useState(false);
 
+  // Update Service Position based on state
+  useEffect(() => {
+    let targetX = 0; // 0 = Left Column (or Left side of Row), 1 = Right Column/Side
+    let targetY = 0; // 0 = Top Row (or Top of Col), 1 = Bottom Row/Side
+
+    const isT1Serving = servingTeam === 1;
+    // Determine if server is in the 'Right' pos (relative to team logic)
+    // Team 1 Right Index vs Server Index
+    const isT1Right = t1RightPlayerIdx === serverIdx;
+    const isT2Right = t2RightPlayerIdx === serverIdx;
+
+    if (viewMode === 'FRONT') {
+        if (isT1Serving) {
+            // Team 1 is Bottom Row
+            targetY = 1; 
+            targetX = isT1Right ? 1 : 0; // L=0, R=1
+        } else {
+            // Team 2 is Top Row
+            targetY = 0;
+            targetX = isT2Right ? 0 : 1; // R=0, L=1 (inverted view)
+        }
+    } else {
+        // SIDE View
+        if (isT1Serving) {
+            // Team 1 is Left Column
+            targetX = 0;
+            targetY = isT1Right ? 1 : 0; // L=Top(0), R=Bottom(1)
+        } else {
+            // Team 2 is Right Column
+            targetX = 1;
+            targetY = isT2Right ? 0 : 1; // R=Top(0), L=Bottom(1)
+        }
+    }
+
+    Animated.parallel([
+        Animated.spring(serviceAnimX, { toValue: targetX, useNativeDriver: false, friction: 6, tension: 50 }),
+        Animated.spring(serviceAnimY, { toValue: targetY, useNativeDriver: false, friction: 6, tension: 50 })
+    ]).start();
+  }, [servingTeam, serverIdx, t1RightPlayerIdx, t2RightPlayerIdx, viewMode]);
+
   const MAX_POINTS = pointsPerSet; 
   const CAP_POINTS = 30; // Hard cap usually
 
@@ -179,6 +269,9 @@ export default function LiveScoreScreen() {
     setCurrStreak2(newCurrStreak2);
     setMaxStreak1(newMaxStreak1);
     setMaxStreak2(newMaxStreak2);
+    
+    // Animate Score
+    triggerScoreAnim(winningTeam);
 
     if (winningTeam === 1) {
       if (checkSetWin(score1 + 1, score2)) {
@@ -440,11 +533,6 @@ export default function LiveScoreScreen() {
              </View>
 
              <View style={styles.roleIconContainer}>
-                {isServing && (
-                    <View style={[styles.roleBadge, {backgroundColor: '#FFD700'}]}>
-                         <MaterialCommunityIcons name="badminton" size={16} color="#000" />
-                    </View>
-                )}
                 {isReceiving && (
                     <View style={[styles.roleBadge, {backgroundColor: '#E0E0E0', justifyContent: 'center', alignItems: 'center'}]}>
                         <Text style={{fontSize: 14, lineHeight: 18}}>🏸</Text>
@@ -471,7 +559,10 @@ export default function LiveScoreScreen() {
          <View style={styles.scoreBoardResult}>
              {/* Team 1 Score (Blue) */}
              <View style={styles.scoreSide}>
-                 <Text style={[styles.bigScore, {color: TEAM_COLORS.team1}]}>{score1}</Text>
+                 <Animated.Text style={[styles.bigScore, {color: TEAM_COLORS.team1, transform: [{scale: scoreScale1}]}]}>{score1}</Animated.Text>
+                 {showPlusOne1 && (
+                     <Animated.Text style={[styles.plusOneText, { opacity: plusOneOpacity1, transform: [{translateY: plusOneY1}] }]}>+1</Animated.Text>
+                 )}
                  <Text style={styles.teamNameLabel} numberOfLines={2}  adjustsFontSizeToFit minimumFontScale={0.8}>{team1.map(p => p.name).join('/')}</Text>
                  <View style={styles.setsDots}>
                     {Array.from({length: setWins1}).map((_,i) => <View key={i} style={[styles.setDot, {backgroundColor: TEAM_COLORS.team1}]} />)}
@@ -489,7 +580,10 @@ export default function LiveScoreScreen() {
 
              {/* Team 2 Score (Red) */}
              <View style={styles.scoreSide}>
-                 <Text style={[styles.bigScore, {color: TEAM_COLORS.team2}]}>{score2}</Text>
+                 <Animated.Text style={[styles.bigScore, {color: TEAM_COLORS.team2, transform: [{scale: scoreScale2}]}]}>{score2}</Animated.Text>
+                 {showPlusOne2 && (
+                     <Animated.Text style={[styles.plusOneText, { opacity: plusOneOpacity2, transform: [{translateY: plusOneY2}] }]}>+1</Animated.Text>
+                 )}
                  <Text style={styles.teamNameLabel} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{team2.map(p => p.name).join('/')}</Text>
                  <View style={styles.setsDots}>
                     {Array.from({length: setWins2}).map((_,i) => <View key={i} style={[styles.setDot, {backgroundColor: TEAM_COLORS.team2}]} />)}
@@ -576,6 +670,32 @@ export default function LiveScoreScreen() {
                         </View>
                     </>
                 )}
+                
+                {/* Gliding Service Token */}
+                <Animated.View style={[
+                    styles.roleBadge, 
+                    {
+                        position: 'absolute',
+                        backgroundColor: '#FFD700',
+                        zIndex: 20,
+                        width: 30, height: 30, borderRadius: 15,
+                        left: serviceAnimX.interpolate({inputRange: [0, 1], outputRange: ['25%', '75%']}),
+                        top: serviceAnimY.interpolate({inputRange: [0, 1], outputRange: ['25%', '75%']}),
+                        transform: [
+                            { translateX: -15 }, // Center anchor
+                            { translateY: -15 },
+                            { scale: pulseAnim }
+                        ],
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.3,
+                        shadowRadius: 4.65,
+                        elevation: 8,
+                    }
+                ]}>
+                    <MaterialCommunityIcons name="badminton" size={20} color="#000" />
+                </Animated.View>
+
             </View>
           </View>
 
@@ -1093,5 +1213,16 @@ const createStyles = (theme: Theme) => StyleSheet.create({
       color: 'rgba(255,255,255,0.7)',
       fontSize: 12,
       marginTop: 2,
+  },
+  plusOneText: {
+      position: 'absolute',
+      top: -10,
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: theme.colors.secondary,
+      zIndex: 10,
+      textShadowColor: 'rgba(0,0,0,0.5)', 
+      textShadowOffset: {width: 1, height: 1}, 
+      textShadowRadius: 2 
   }
 });
