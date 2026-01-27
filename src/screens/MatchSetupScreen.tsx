@@ -103,6 +103,16 @@ export default function MatchSetupScreen() {
       return map;
   };
 
+  const swapTeams = () => {
+    // Swap Team 1 with Team 2
+    const temp1 = p1;
+    const temp2 = p2;
+    setP1(p3);
+    setP2(p4);
+    setP3(temp1);
+    setP4(temp2);
+  };
+
   const startMatch = () => {
     if (isDoubles) {
       if (!p1 || !p2 || !p3 || !p4) {
@@ -223,8 +233,13 @@ export default function MatchSetupScreen() {
              {isDoubles && renderPlayerSelector('Partner', p2, 'p2')}
           </View>
           
-          <View style={styles.vsBadge}>
-              <Text style={styles.vsText}>VS</Text>
+          <View style={styles.swapContainer}>
+              <View style={styles.swapLine} />
+              <TouchableOpacity style={styles.swapBtn} onPress={swapTeams}>
+                  <MaterialCommunityIcons name="swap-vertical" size={20} color={theme.colors.textInverse} />
+                  <Text style={styles.swapText}>SWAP TEAMS</Text>
+              </TouchableOpacity>
+              <View style={styles.swapLine} />
           </View>
 
           <View style={styles.teamBlock}>
@@ -460,6 +475,37 @@ const createStyles = (theme: Theme) => StyleSheet.create({
       textTransform: 'uppercase',
       letterSpacing: 1,
       marginBottom: 4,
+  },
+  swapContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginVertical: 16,
+      justifyContent: 'center',
+  },
+  swapLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: theme.colors.border,
+  },
+  swapBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.textPrimary,
+      paddingVertical: 6,
+      paddingHorizontal: 16,
+      borderRadius: 20,
+      marginHorizontal: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 2,
+  },
+  swapText: {
+      color: theme.colors.textInverse,
+      fontWeight: '700',
+      fontSize: 10,
+      marginLeft: 4,
   },
   vsBadge: {
       alignSelf: 'center',

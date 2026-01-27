@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, StatusBar, Dimensions, Animated, Easing, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, StatusBar, Dimensions, Animated, Easing, Platform, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useClub } from '../context/ClubContext';
 import { Match, MatchSet } from '../models/types';
 import { useTheme } from '../context/ThemeContext';
@@ -58,6 +58,62 @@ export default function LiveScoreScreen() {
   const [setWins1, setSetWins1] = useState(0);
   const [setWins2, setSetWins2] = useState(0);
   
+  // Setup Helper -> Removed Modal
+  // Default state is Serving Team 1, Server Index 0
+  const handlePlayerTap = (team: 1 | 2, tappedPlayerIdx: number) => {
+      // Only allow at 0-0 start of match or set
+      if (score1 !== 0 || score2 !== 0) return;
+
+      // 1. If tapping the serving team -> Change Server
+      if (team === servingTeam) {
+          setServerIdx(tappedPlayerIdx);
+          // Also Ensure they are in Right Box (for doubles) - simplified logic
+          if (team === 1) setT1RightPlayerIdx(tappedPlayerIdx);
+          else setT2RightPlayerIdx(tappedPlayerIdx);
+      } 
+      // 2. If tapping non-serving team -> Switch Serving Team
+      else {
+          setServingTeam(team);
+          setServerIdx(tappedPlayerIdx);
+          if (team === 1) setT1RightPlayerIdx(tappedPlayerIdx);
+          else setT2RightPlayerIdx(tappedPlayerIdx);
+      }
+  };
+
+  const manualSwapPositions = (team: 1 | 2) => {
+       // Only allowed at 0-0
+       if (score1 !== 0 || score2 !== 0) {
+           Alert.alert("Cannot Swap", "Swapping positions is only allowed at the start of the set (0-0).");
+           return;
+       }
+       
+       if (team === 1) {
+           const newRight = t1RightPlayerIdx === 0 ? 1 : 0;
+           setT1RightPlayerIdx(newRight);
+           if (servingTeam === 1) setServerIdx(newRight);
+       } else {
+           const newRight = t2RightPlayerIdx === 0 ? 1 : 0;
+           setT2RightPlayerIdx(newRight);
+           if (servingTeam === 2) setServerIdx(newRight);
+       }
+  };
+
+  const toggleServingTeam = () => {
+    const newTeam = servingTeam === 1 ? 2 : 1;
+    setServingTeam(newTeam);
+    
+    // Auto-select correct server based on that team's score
+    const newScore = newTeam === 1 ? score1 : score2;
+    const isEven = newScore % 2 === 0;
+    
+    if (!isDoubles) {
+         setServerIdx(0);
+    } else {
+         const currentRightIdx = newTeam === 1 ? t1RightPlayerIdx : t2RightPlayerIdx;
+         setServerIdx(isEven ? currentRightIdx : (currentRightIdx === 0 ? 1 : 0));
+    }
+  };
+  
   // Advanced Service Logic
   const [servingTeam, setServingTeam] = useState<1 | 2>(1);
   const [serverIdx, setServerIdx] = useState(0); // 0 or 1
@@ -77,6 +133,14 @@ export default function LiveScoreScreen() {
   const [maxStreak2, setMaxStreak2] = useState(0);
   const [servePoints1, setServePoints1] = useState(0);
   const [servePoints2, setServePoints2] = useState(0);
+
+  // View Mode ('SIDE' = Default, Left/Right | 'FRONT' = Old, Top/Bottom)
+  const [viewMode, setViewMode] = useState<'SIDE' | 'FRONT'>('SIDE');
+  
+  // Stats Modal
+  const [statsModalVisible, setStatsModalVisible] = useState(false);
+  const [resetModalVisible, setResetModalVisible] = useState(false);
+  const [endMatchModalVisible, setEndMatchModalVisible] = useState(false);
 
   const MAX_POINTS = pointsPerSet; 
   const CAP_POINTS = 30; // Hard cap usually
@@ -248,22 +312,59 @@ export default function LiveScoreScreen() {
   };
 
   const resetSet = () => {
-    Alert.alert('Reset Set', 'Are you sure you want to reset the current set scores to 0-0?', [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-            text: 'Reset', 
-            style: 'destructive', 
-            onPress: () => {
-                setScore1(0);
-                setScore2(0);
-                setHistory([]);
-                setT1RightPlayerIdx(0);
-                setT2RightPlayerIdx(0);
-                // Keep serving team as is, or reset? Usually reset to initial server of the set? 
-                // Let's just reset scores and history.
-            } 
-        }
-    ]);
+    setResetModalVisible(true);
+  };
+
+  const confirmReset = () => {
+    setScore1(0);
+    setScore2(0);
+    setHistory([]);
+    setT1RightPlayerIdx(0);
+    setT2RightPlayerIdx(0);
+    setResetModalVisible(false);
+  };
+
+  const handleEndMatch = (action: 'save' | 'discard') => {
+      setEndMatchModalVisible(false);
+      
+      if (action === 'discard') {
+          navigation.goBack();
+          return;
+      }
+
+      // Save Logic
+      let finalWinner: 1 | 2 = 1;
+      if (setWins1 > setWins2) finalWinner = 1;
+      else if (setWins2 > setWins1) finalWinner = 2;
+      else {
+          if (score1 >= score2) finalWinner = 1;
+          else finalWinner = 2;
+      }
+
+      // Include current set in history if not empty
+      const finalSets = [...sets];
+      if (score1 > 0 || score2 > 0 || sets.length === 0) {
+          finalSets.push({ t1: score1, t2: score2 });
+      }
+
+      const newMatch: Match = {
+        id: Math.random().toString(),
+        clubId: activeClub?.id || 'unknown',
+        date: Date.now(),
+        team1: team1.map(p => p.id), 
+        team2: team2.map(p => p.id),
+        scores: finalSets.map(s => ({ team1Score: s.t1, team2Score: s.t2 })),
+        winnerTeam: finalWinner,
+        isLive: false,
+        stats: {
+            maxConsecutivePts: { team1: maxStreak1, team2: maxStreak2 },
+            pointsWonOnServe: { team1: servePoints1, team2: servePoints2 }
+        },
+        guestNames
+      };
+      
+      recordMatch(newMatch);
+      (navigation as any).replace('MatchOverview', { match: newMatch });
   };
 
   const renderPlayerBox = (team: 1 | 2, position: 'L' | 'R', isTop: boolean) => {
@@ -305,9 +406,10 @@ export default function LiveScoreScreen() {
          const servingScore = servingTeam === 1 ? score1 : score2;
          const isEvenScore = servingScore % 2 === 0;
          
+         // Standard Rules: Even -> Serve to Right Box. Odd -> Serve to Left Box.
          if (servingTeam === 1) {
-             if (isEvenScore && position === 'L') isReceiving = true;
-             if (!isEvenScore && position === 'R') isReceiving = true;
+             if (isEvenScore && position === 'R') isReceiving = true;
+             if (!isEvenScore && position === 'L') isReceiving = true;
          } else {
              if (isEvenScore && position === 'R') isReceiving = true;
              if (!isEvenScore && position === 'L') isReceiving = true;
@@ -315,7 +417,11 @@ export default function LiveScoreScreen() {
      }
 
      return (
-        <View style={[
+        <TouchableOpacity 
+            activeOpacity={0.8}
+            disabled={score1 !== 0 || score2 !== 0}
+            onPress={() => handlePlayerTap(team, playerIdx)}
+            style={[
             styles.playerPill,
             isServing && styles.servingPill,
             isReceiving && styles.receivingPill,
@@ -328,20 +434,28 @@ export default function LiveScoreScreen() {
              </View>
              
              <View style={styles.pillContent}>
-                <Text style={styles.playerName} numberOfLines={1}>
+                <Text style={styles.playerName} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>
                     {player?.name || (isDoubles ? 'P'+(playerIdx+1) : '')}
                 </Text>
-                {isServing && <Text style={styles.roleText}>SERVING</Text>}
              </View>
 
-             {isServing && (
-                 <View style={styles.shuttleBadge}>
-                     <MaterialCommunityIcons name="badminton" size={14} color="#000" />
-                 </View>
-             )}
-        </View>
+             <View style={styles.roleIconContainer}>
+                {isServing && (
+                    <View style={[styles.roleBadge, {backgroundColor: '#FFD700'}]}>
+                         <MaterialCommunityIcons name="badminton" size={16} color="#000" />
+                    </View>
+                )}
+                {isReceiving && (
+                    <View style={[styles.roleBadge, {backgroundColor: '#E0E0E0', justifyContent: 'center', alignItems: 'center'}]}>
+                        <Text style={{fontSize: 14, lineHeight: 18}}>🏸</Text>
+                    </View>
+                )}
+             </View>
+        </TouchableOpacity>
      );
   };
+
+
 
   return (
     <View style={styles.container}>
@@ -358,7 +472,7 @@ export default function LiveScoreScreen() {
              {/* Team 1 Score (Blue) */}
              <View style={styles.scoreSide}>
                  <Text style={[styles.bigScore, {color: TEAM_COLORS.team1}]}>{score1}</Text>
-                 <Text style={styles.teamNameLabel} numberOfLines={1}>{team1.map(p => p.name).join('/')}</Text>
+                 <Text style={styles.teamNameLabel} numberOfLines={2}  adjustsFontSizeToFit minimumFontScale={0.8}>{team1.map(p => p.name).join('/')}</Text>
                  <View style={styles.setsDots}>
                     {Array.from({length: setWins1}).map((_,i) => <View key={i} style={[styles.setDot, {backgroundColor: TEAM_COLORS.team1}]} />)}
                  </View>
@@ -376,7 +490,7 @@ export default function LiveScoreScreen() {
              {/* Team 2 Score (Red) */}
              <View style={styles.scoreSide}>
                  <Text style={[styles.bigScore, {color: TEAM_COLORS.team2}]}>{score2}</Text>
-                 <Text style={styles.teamNameLabel} numberOfLines={1}>{team2.map(p => p.name).join('/')}</Text>
+                 <Text style={styles.teamNameLabel} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{team2.map(p => p.name).join('/')}</Text>
                  <View style={styles.setsDots}>
                     {Array.from({length: setWins2}).map((_,i) => <View key={i} style={[styles.setDot, {backgroundColor: TEAM_COLORS.team2}]} />)}
                  </View>
@@ -387,35 +501,81 @@ export default function LiveScoreScreen() {
       {/* Court Visualisation */}
       <Animated.View style={[styles.mainArea, {opacity: fadeAnim}]}>
           <View style={styles.courtBorder}>
-            <View style={styles.court}>
-                {/* Team 2 Side (Top) */}
-                <View style={styles.courtHalf}>
-                    <View style={styles.courtRow}>
-                        <View style={[styles.courtBox, styles.borderRight, styles.borderBottom]}>
-                            {renderPlayerBox(2, 'L', true)}
-                        </View>
-                        <View style={[styles.courtBox, styles.borderBottom]}>
-                            {renderPlayerBox(2, 'R', true)}
-                        </View>
-                    </View>
-                </View>
+            <View style={[styles.court, {flexDirection: viewMode === 'SIDE' ? 'row' : 'column'}]}>
+                
+                {/* 
+                    VIEW MODE LOGIC:
+                    FRONT: Team 2 Top (Row), Net Horizontal, Team 1 Bottom (Row).
+                    SIDE: Team 1 Left (Col), Net Vertical, Team 2 Right (Col).
+                */}
 
-                {/* Net */}
-                <View style={styles.netLine}>
-                    <View style={styles.netMesh} />
-                </View>
+                {viewMode === 'FRONT' ? (
+                    <>
+                        {/* Team 2 Side (Top) */}
+                        <View style={[styles.courtHalf, { backgroundColor: TEAM_COLORS.team2 + '50' }]}>
+                            <View style={styles.courtRow}>
+                                <View style={[styles.courtBox, styles.borderRight, styles.borderBottom]}>
+                                    {renderPlayerBox(2, 'R', true)}
+                                </View>
+                                <View style={[styles.courtBox, styles.borderBottom]}>
+                                    {renderPlayerBox(2, 'L', true)}
+                                </View>
+                            </View>
+                        </View>
 
-                {/* Team 1 Side (Bottom) */}
-                <View style={styles.courtHalf}>
-                    <View style={styles.courtRow}>
-                        <View style={[styles.courtBox, styles.borderRight, styles.borderTop]}>
-                            {renderPlayerBox(1, 'L', false)}
+                        {/* Net Horizontal */}
+                        <View style={styles.netContainer}>
+                            <View style={styles.netMesh} />
+                            <View style={styles.netTopTape} />
                         </View>
-                        <View style={[styles.courtBox, styles.borderTop]}>
-                            {renderPlayerBox(1, 'R', false)}
+
+                        {/* Team 1 Side (Bottom) */}
+                        <View style={[styles.courtHalf, { backgroundColor: TEAM_COLORS.team1 + '50' }]}>
+                            <View style={styles.courtRow}>
+                                <View style={[styles.courtBox, styles.borderRight, styles.borderTop]}>
+                                    {renderPlayerBox(1, 'L', false)}
+                                </View>
+                                <View style={[styles.courtBox, styles.borderTop]}>
+                                    {renderPlayerBox(1, 'R', false)}
+                                </View>
+                            </View>
                         </View>
-                    </View>
-                </View>
+                    </>
+                ) : (
+                    <>
+                        {/* Team 1 Side (Left) */}
+                        <View style={[styles.courtHalf, { backgroundColor: TEAM_COLORS.team1 + '50' }]}>
+                            <View style={[styles.courtRow, {flexDirection: 'column'}]}>
+                                <View style={[styles.courtBox, styles.borderBottom, styles.borderRight]}>
+                                    {renderPlayerBox(1, 'L', false)}
+                                </View>
+                                <View style={[styles.courtBox, styles.borderRight]}>
+                                    {renderPlayerBox(1, 'R', false)}
+                                </View>
+                            </View>
+                        </View>
+
+                        {/* Net Vertical */}
+                        <View style={styles.netContainerVertical}>
+                            <View style={styles.netMeshVertical} />
+                            <View style={styles.netTopTapeVertical} />
+                        </View>
+
+                        {/* Team 2 Side (Right) */}
+                        <View style={[styles.courtHalf, { backgroundColor: TEAM_COLORS.team2 + '50' }]}>
+                            <View style={[styles.courtRow, {flexDirection: 'column'}]}>
+                                <View style={[styles.courtBox, styles.borderBottom, styles.borderLeft]}>
+                                    {renderPlayerBox(2, 'R', true)} 
+                                    {/* Note: T2 R is Top in side view? Let's check logic. 
+                                        Facing Net (Left): Right is Top. So 'R' is Top box. */}
+                                </View>
+                                <View style={[styles.courtBox, styles.borderLeft]}>
+                                    {renderPlayerBox(2, 'L', true)}
+                                </View>
+                            </View>
+                        </View>
+                    </>
+                )}
             </View>
           </View>
 
@@ -429,7 +589,21 @@ export default function LiveScoreScreen() {
                   <Ionicons name="add" size={32} color="white" />
                   <Text style={styles.btnLabel}>T2</Text>
               </TouchableOpacity>
+
+              {(score1 === 0 && score2 === 0) && (
+                  <TouchableOpacity style={styles.miniSwapBtn} onPress={() => manualSwapPositions(2)}>
+                      <Ionicons name="repeat" size={16} color="white" />
+                  </TouchableOpacity>
+              )}
               
+              <View style={{flex: 0.1}} /> 
+
+              {(score1 === 0 && score2 === 0) && (
+                  <TouchableOpacity style={styles.miniSwapBtn} onPress={() => manualSwapPositions(1)}>
+                      <Ionicons name="repeat" size={16} color="white" />
+                  </TouchableOpacity>
+              )}
+
               <TouchableOpacity 
                 style={[styles.scoreBtn, {backgroundColor: TEAM_COLORS.team1}]} 
                 onPress={() => handleScore(1)}
@@ -451,17 +625,156 @@ export default function LiveScoreScreen() {
              <Ionicons name="refresh-outline" size={24} color={theme.colors.textPrimary} />
              <Text style={styles.actionBtnText}>Reset</Text>
         </TouchableOpacity>
+
+        {(score1 === 0 && score2 === 0) && (
+            <TouchableOpacity style={styles.actionBtn} onPress={toggleServingTeam}>
+                 <Ionicons name="swap-horizontal-outline" size={24} color={theme.colors.textPrimary} />
+                 <Text style={styles.actionBtnText}>Service</Text>
+            </TouchableOpacity>
+        )}
+
+        <TouchableOpacity style={styles.actionBtn} onPress={() => setViewMode(prev => prev === 'SIDE' ? 'FRONT' : 'SIDE')}>
+             <Ionicons name={viewMode === 'SIDE' ? "phone-portrait-outline" : "phone-landscape-outline"} size={24} color={theme.colors.textPrimary} />
+             <Text style={styles.actionBtnText}>{viewMode === 'SIDE' ? 'Side View' : 'Front View'}</Text>
+        </TouchableOpacity>
         
-        <TouchableOpacity style={styles.actionBtn} onPress={() => Alert.alert('Stats', 'View detailed stats')}>
+        <TouchableOpacity style={styles.actionBtn} onPress={() => setStatsModalVisible(true)}>
              <Ionicons name="stats-chart-outline" size={24} color={theme.colors.textPrimary} />
              <Text style={styles.actionBtnText}>Stats</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.actionBtn, styles.endBtn]} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={[styles.actionBtn, styles.endBtn]} onPress={() => setEndMatchModalVisible(true)}>
              <Ionicons name="stop-circle-outline" size={24} color={theme.colors.error} />
              <Text style={[styles.actionBtnText, {color: theme.colors.error}]}>End</Text>
         </TouchableOpacity>
       </View>
+
+      {/* End Match Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={endMatchModalVisible}
+        onRequestClose={() => setEndMatchModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>End Match Early?</Text>
+                
+                <Text style={styles.modalText}>
+                    The match hasn't reached the winning score. How would you like to proceed?
+                </Text>
+
+                {(sets.length > 0 || score1 > 0 || score2 > 0) && (
+                    <TouchableOpacity 
+                        style={[styles.modalBtn, {backgroundColor: theme.colors.primary, marginBottom: 12}]} 
+                        onPress={() => handleEndMatch('save')}
+                    >
+                        <Text style={styles.modalBtnText}>Save & End</Text>
+                        <Text style={styles.modalBtnSubtext}>Records current score as final</Text>
+                    </TouchableOpacity>
+                )}
+
+                <TouchableOpacity 
+                    style={[styles.modalBtn, {backgroundColor: theme.colors.error, marginBottom: 12}]} 
+                    onPress={() => handleEndMatch('discard')}
+                >
+                    <Text style={styles.modalBtnText}>Discard Match</Text>
+                    <Text style={styles.modalBtnSubtext}>Don't save any data</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                    style={[styles.modalBtn, {backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.colors.textSecondary}]} 
+                    onPress={() => setEndMatchModalVisible(false)}
+                >
+                    <Text style={[styles.modalBtnText, {color: theme.colors.textPrimary}]}>Cancel</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={resetModalVisible}
+        onRequestClose={() => setResetModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Reset Current Set?</Text>
+                <Text style={{color: theme.colors.textSecondary, textAlign: 'center', marginBottom: 20}}>
+                    Are you sure you want to reset the current scores to 0-0? This action cannot be undone (you can clear local history though).
+                </Text>
+
+                <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                    <TouchableOpacity 
+                        style={[styles.closeButton, {backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.colors.textSecondary, flex: 0.45}]} 
+                        onPress={() => setResetModalVisible(false)}
+                    >
+                        <Text style={[styles.closeButtonText, {color: theme.colors.textPrimary}]}>Cancel</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                        style={[styles.closeButton, {backgroundColor: theme.colors.error, flex: 0.45}]} 
+                        onPress={confirmReset}
+                    >
+                        <Text style={styles.closeButtonText}>Reset</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={statsModalVisible}
+        onRequestClose={() => setStatsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Match Statistics</Text>
+
+                <View style={styles.statRow}>
+                    <Text style={styles.statLabel}>Set Score</Text>
+                    <View style={styles.statValueContainer}>
+                        <Text style={[styles.statValue, {color: TEAM_COLORS.team1}]}>{setWins1}</Text>
+                        <Text style={[styles.statValue, {color: TEAM_COLORS.team2}]}>{setWins2}</Text>
+                    </View>
+                </View>
+
+                <View style={styles.statRow}>
+                    <Text style={styles.statLabel}>Current Score</Text>
+                    <View style={styles.statValueContainer}>
+                        <Text style={[styles.statValue, {color: TEAM_COLORS.team1}]}>{score1}</Text>
+                        <Text style={[styles.statValue, {color: TEAM_COLORS.team2}]}>{score2}</Text>
+                    </View>
+                </View>
+
+                <View style={styles.statRow}>
+                    <Text style={styles.statLabel}>Max Streak</Text>
+                    <View style={styles.statValueContainer}>
+                        <Text style={[styles.statValue, {color: TEAM_COLORS.team1}]}>{maxStreak1}</Text>
+                        <Text style={[styles.statValue, {color: TEAM_COLORS.team2}]}>{maxStreak2}</Text>
+                    </View>
+                </View>
+
+                <View style={styles.statRow}>
+                    <Text style={styles.statLabel}>Points on Serve</Text>
+                    <View style={styles.statValueContainer}>
+                        <Text style={[styles.statValue, {color: TEAM_COLORS.team1}]}>{servePoints1}</Text>
+                        <Text style={[styles.statValue, {color: TEAM_COLORS.team2}]}>{servePoints2}</Text>
+                    </View>
+                </View>
+
+                <TouchableOpacity 
+                    style={styles.closeButton} 
+                    onPress={() => setStatsModalVisible(false)}
+                >
+                    <Text style={styles.closeButtonText}>Close</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -497,7 +810,7 @@ const createStyles = (theme: Theme) => StyleSheet.create({
   scoreBoardResult: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   scoreSide: { flex: 1, alignItems: 'center' },
   bigScore: { fontSize: 36, fontWeight: '800' },
-  teamNameLabel: { color: theme.colors.textSecondary, fontSize: 12, marginTop: -4, maxWidth: 80, textAlign:'center' },
+  teamNameLabel: { color: theme.colors.textSecondary, fontSize: 13, marginTop: -4, textAlign:'center', fontWeight: 'bold' },
   setsDots: { flexDirection: 'row', marginTop: 4, height: 6 },
   setDot: { width: 6, height: 6, borderRadius: 3, marginHorizontal: 1 },
 
@@ -533,89 +846,152 @@ const createStyles = (theme: Theme) => StyleSheet.create({
   
   // Court Lines
   borderRight: { borderRightWidth: 2, borderRightColor: theme.colors.court.lines },
+  borderLeft: { borderLeftWidth: 2, borderLeftColor: theme.colors.court.lines },
   borderBottom: { borderBottomWidth: 2, borderBottomColor: theme.colors.court.lines },
   borderTop: { borderTopWidth: 2, borderTopColor: theme.colors.court.lines },
   
-  netLine: { 
-      height: 12, 
-      backgroundColor: 'rgba(0,0,0,0.1)', 
-      width: '100%', 
-      justifyContent: 'center' 
+  netContainer: {
+      height: 16,
+      backgroundColor: 'rgba(0,0,0,0.15)',
+      width: '100%',
+      justifyContent: 'center',
+      position: 'relative'
   },
   netMesh: {
-      height: 2,
+      height: 4,
       borderStyle: 'dotted',
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.9)',
+      borderWidth: 1.5,
+      borderColor: 'rgba(255,255,255,0.7)',
       width: '100%',
+      position: 'absolute',
+      top: 6
+  },
+  netTopTape: {
+      height: 2,
+      backgroundColor: 'white',
+      width: '100%',
+      position: 'absolute',
+      top: 0,
+      opacity: 0.8
+  },
+
+  netContainerVertical: {
+      width: 16,
+      backgroundColor: 'rgba(0,0,0,0.15)',
+      height: '100%',
+      alignItems: 'center',
+      position: 'relative'
+  },
+  netMeshVertical: {
+      width: 4,
+      borderStyle: 'dotted',
+      borderWidth: 1.5,
+      borderColor: 'rgba(255,255,255,0.7)',
+      height: '100%',
+      position: 'absolute',
+      left: 6
+  },
+  netTopTapeVertical: {
+      width: 2,
+      backgroundColor: 'white',
+      height: '100%',
+      position: 'absolute',
+      left: 0,
+      opacity: 0.8
   },
 
   // Player Pill
   playerPill: { 
       flexDirection: 'row', 
       alignItems: 'center', 
-      backgroundColor: 'rgba(0,0,0,0.6)',
-      paddingVertical: 5,
-      paddingHorizontal: 8,
-      borderRadius: 20,
-      minWidth: 90,
-      maxWidth: 130,
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.2)',
-  },
-  t1Pill: { borderColor: 'rgba(66, 153, 225, 0.4)' },
-  t2Pill: { borderColor: 'rgba(245, 101, 101, 0.4)' },
-  
-  servingPill: { 
-      backgroundColor: theme.colors.surface, 
-      borderColor: theme.colors.secondary,
-      transform: [{scale: 1.05}],
+      backgroundColor: 'rgba(0,0,0,0.75)',
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 24,
+      minWidth: '70%',
+      maxWidth: '95%',
+      borderWidth: 1.5,
+      borderColor: 'rgba(255,255,255,0.3)',
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.25,
       shadowRadius: 3.84,
-      elevation: 5,
+      elevation: 3,
+  },
+  t1Pill: { borderColor: TEAM_COLORS.team1, borderLeftWidth: 4 },
+  t2Pill: { borderColor: TEAM_COLORS.team2, borderLeftWidth: 4 },
+  
+  servingPill: { 
+      backgroundColor: theme.colors.surface, 
+      borderColor: theme.colors.secondary,
+      borderLeftWidth: 4,
+      transform: [{scale: 1.05}],
+      shadowColor: theme.colors.secondary,
+      shadowOpacity: 0.5,
+      elevation: 8,
+      zIndex: 10
   },
   receivingPill: {
-      backgroundColor: theme.colors.primary + '60', 
+      backgroundColor: 'rgba(0,0,0,0.85)',
+      borderWidth: 1.5,
+      borderColor: 'rgba(255,255,255,0.5)'
   },
 
   avatarCircle: {
-      width: 24, height: 24, borderRadius: 12,
+      width: 32, height: 32, borderRadius: 16,
       justifyContent: 'center', alignItems: 'center',
-      marginRight: 6,
+      marginRight: 10,
   },
-  avatarText: { color: 'white', fontWeight: 'bold', fontSize: 10 },
+  avatarText: { color: 'white', fontWeight: 'bold', fontSize: 13 },
   
-  pillContent: { flex: 1 },
-  playerName: { color: 'white', fontWeight: 'bold', fontSize: 11 },
-  roleText: { color: theme.colors.secondary, fontSize: 8, fontWeight: '700', marginTop: 1 },
+  pillContent: { flex: 1, paddingRight: 4 },
+  playerName: { color: 'white', fontWeight: 'bold', fontSize: 14, letterSpacing: 0.5 },
   
-  shuttleBadge: {
+  roleIconContainer: {
       marginLeft: 4,
-      width: 16, height: 16, 
       justifyContent: 'center', alignItems: 'center'
+  },
+  roleBadge: {
+      width: 24, height: 24, 
+      borderRadius: 12,
+      justifyContent: 'center', alignItems: 'center',
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.2,
+      shadowRadius: 1.41,
+      elevation: 2,
   },
 
   // Controls
   controlsColumn: {
-      width: 70,
+      width: 76,
       justifyContent: 'space-between',
       paddingVertical: 4,
+      alignItems: 'center'
   },
   scoreBtn: {
       flex: 1,
+      width: '100%',
       justifyContent: 'center',
       alignItems: 'center',
-      borderRadius: 16,
+      borderRadius: 20,
       marginBottom: 8,
-      elevation: 4,
+      elevation: 6,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 4.65,
+      shadowOpacity: 0.4,
+      shadowRadius: 6,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.2)'
   },
-  btnLabel: { color: 'white', fontWeight: '900', fontSize: 16, marginTop: 4 },
+  miniSwapBtn: {
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      width: 36, height: 36, borderRadius: 18,
+      justifyContent: 'center', alignItems: 'center',
+      marginBottom: 8,
+      borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)'
+  },
+  btnLabel: { color: 'white', fontWeight: '900', fontSize: 24, marginTop: 4, textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: {width: 0, height: 1}, textShadowRadius: 2 },
 
   controlBar: { 
       flexDirection: 'row', 
@@ -629,4 +1005,93 @@ const createStyles = (theme: Theme) => StyleSheet.create({
   actionBtn: { alignItems: 'center' },
   actionBtnText: { color: theme.colors.textPrimary, fontSize: 10, marginTop: 4, fontWeight: '600' },
   endBtn: {},
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '85%',
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.surfaceHighlight,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 10,
+  },
+  modalTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  statRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  statLabel: {
+      color: theme.colors.textSecondary,
+      fontSize: 14,
+      flex: 1,
+  },
+  statValueContainer: {
+      flexDirection: 'row',
+      width: 120,
+      justifyContent: 'space-between',
+  },
+  statValue: {
+      color: theme.colors.textPrimary,
+      fontWeight: 'bold',
+      fontSize: 16,
+      width: 50,
+      textAlign: 'center',
+  },
+  closeButton: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  closeButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  modalText: {
+    color: theme.colors.textSecondary,
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalBtn: {
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '100%',
+  },
+  modalBtnText: {
+      color: 'white',
+      fontWeight: 'bold',
+      fontSize: 16,
+  },
+  modalBtnSubtext: {
+      color: 'rgba(255,255,255,0.7)',
+      fontSize: 12,
+      marginTop: 2,
+  }
 });
