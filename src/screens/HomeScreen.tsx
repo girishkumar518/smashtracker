@@ -16,7 +16,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Stats View State
-  const [statsMode, setStatsMode] = useState<'day' | 'month'>('day');
+  const [statsMode, setStatsMode] = useState<'overall' | 'day' | 'month'>('overall');
   const [statsDate, setStatsDate] = useState(new Date());
 
   // Animation values
@@ -133,13 +133,13 @@ export default function HomeScreen() {
 
   const periodStats = useMemo(() => {
     // 1. Calculate Time Range
-    const start = new Date(statsDate);
-    const end = new Date(statsDate);
+    let start = new Date(statsDate);
+    let end = new Date(statsDate);
     
     if (statsMode === 'day') {
         start.setHours(0,0,0,0);
         end.setHours(23,59,59,999);
-    } else {
+    } else if (statsMode === 'month') {
         // Month Mode: Start of month to End of month
         start.setDate(1);
         start.setHours(0,0,0,0);
@@ -147,6 +147,11 @@ export default function HomeScreen() {
         end.setMonth(end.getMonth() + 1);
         end.setDate(0); // Last day of previous month (which is current month in this calc)
         end.setHours(23,59,59,999);
+    } else {
+        // Overall: From beginning of time until now (end of today)
+        start = new Date(0); // Epoch
+        end = new Date();
+        end.setHours(23,59,59,999); // Include all matches from today
     }
 
     const relevantMatches = matches?.filter(m => m.date >= start.getTime() && m.date <= end.getTime()) || [];
@@ -275,6 +280,8 @@ export default function HomeScreen() {
   };
 
   const formattedDateLabel = useMemo(() => {
+     if (statsMode === 'overall') return "All Time";
+     
      const today = new Date();
      if (statsMode === 'day') {
          if (statsDate.toDateString() === today.toDateString()) return "Today";
@@ -432,14 +439,14 @@ export default function HomeScreen() {
            <View style={{ marginBottom: 16 }}>
                 {/* Segmented Control */}
                 <View style={{flexDirection: 'row', backgroundColor: theme.colors.surfaceHighlight, padding: 4, borderRadius: 12, marginBottom: 16, alignSelf: 'center'}}>
-                     {['day', 'month'].map((m) => {
+                     {['overall', 'day', 'month'].map((m) => {
                          const isActive = statsMode === m;
                          return (
                             <TouchableOpacity 
                                 key={m}
                                 onPress={() => { setStatsMode(m as any); setStatsDate(new Date()); }}
                                 style={{
-                                    paddingHorizontal: 24, 
+                                    paddingHorizontal: 20, 
                                     paddingVertical: 8, 
                                     borderRadius: 10,
                                     backgroundColor: isActive ? theme.colors.surface : 'transparent',
@@ -460,23 +467,25 @@ export default function HomeScreen() {
                      })}
                 </View>
 
-                {/* Date Navigation */}
-                <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16}}>
-                    <TouchableOpacity onPress={() => changeDate(-1)} style={styles.navBtn}>
-                        <MaterialCommunityIcons name="chevron-left" size={24} color={theme.colors.textPrimary} />
-                    </TouchableOpacity>
-                    <View style={{alignItems: 'center'}}>
-                        <Text style={{fontSize: 18, fontWeight: '700', color: theme.colors.textPrimary}}>
-                            {formattedDateLabel}
-                        </Text>
-                        <Text style={{fontSize: 12, color: theme.colors.textSecondary}}>
-                            {statsMode === 'day' ? 'Daily Report' : 'Monthly Overview'}
-                        </Text>
-                    </View>
-                    <TouchableOpacity onPress={() => changeDate(1)} style={styles.navBtn}>
-                        <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.textPrimary} />
-                    </TouchableOpacity>
-                </View>
+                {/* Date Navigation (Only if NOT overall) */}
+                {statsMode !== 'overall' && (
+                  <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16}}>
+                      <TouchableOpacity onPress={() => changeDate(-1)} style={styles.navBtn}>
+                          <MaterialCommunityIcons name="chevron-left" size={24} color={theme.colors.textPrimary} />
+                      </TouchableOpacity>
+                      <View style={{alignItems: 'center'}}>
+                          <Text style={{fontSize: 18, fontWeight: '700', color: theme.colors.textPrimary}}>
+                              {formattedDateLabel}
+                          </Text>
+                          <Text style={{fontSize: 12, color: theme.colors.textSecondary}}>
+                              {statsMode === 'day' ? 'Daily Report' : 'Monthly Overview'}
+                          </Text>
+                      </View>
+                      <TouchableOpacity onPress={() => changeDate(1)} style={styles.navBtn}>
+                          <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.textPrimary} />
+                      </TouchableOpacity>
+                  </View>
+                )}
            </View>
 
            {/* 5. Horizontal Highlights Carousel */}
@@ -639,35 +648,6 @@ export default function HomeScreen() {
                       <Ionicons name="copy-outline" size={20} color={theme.colors.textSecondary} />
                   </TouchableOpacity>
               </View>
-
-              {/* --- 2. GLOBAL STATS STRIP --- */}
-              {userTotalStats && (
-                  <View style={{
-                      flexDirection: 'row', 
-                      marginHorizontal: 16, 
-                      marginTop: 16, 
-                      backgroundColor: isDark ? '#1A1A1A' : '#FFFFFF',
-                      borderRadius: 12,
-                      padding: 16,
-                      shadowColor: "#000",
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 4,
-                      elevation: 3,
-                      alignItems: 'center',
-                      borderColor: isDark ? '#333' : '#eee',
-                      borderWidth: 1
-                  }}>
-                      <View style={{ flex: 1, alignItems: 'center', borderRightWidth: 1, borderRightColor: isDark ? '#333' : '#eee' }}>
-                          <Text style={{ fontSize: 12, color: theme.colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Total Matches</Text>
-                          <Text style={{ fontSize: 24, fontWeight: '800', color: theme.colors.textPrimary }}>{userTotalStats.played}</Text>
-                      </View>
-                      <View style={{ flex: 1, alignItems: 'center' }}>
-                          <Text style={{ fontSize: 12, color: theme.colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Win Rate</Text>
-                          <Text style={{ fontSize: 24, fontWeight: '800', color: theme.colors.primary }}>{userTotalStats.winRate}%</Text>
-                      </View>
-                  </View>
-              )}
 
               {/* Best Partner Card (Restored) */}
               {stats.bestPartner && (
