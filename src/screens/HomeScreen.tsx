@@ -340,6 +340,7 @@ export default function HomeScreen() {
                 >
                     <Ionicons name="stats-chart" size={20} color="#FFFFFF" />
                 </TouchableOpacity>
+
                 <TouchableOpacity style={styles.iconBtn} onPress={toggleTheme}>
                     <Ionicons name={isDark ? "sunny" : "moon"} size={20} color={theme.colors.textPrimary} />
                 </TouchableOpacity>
@@ -371,13 +372,19 @@ export default function HomeScreen() {
                                 styles.clubPill, 
                                 isActive && styles.activeClubPill
                             ]}
-                            onPress={() => setActiveClub(club)}
+                            onPress={() => {
+                                if (isActive) {
+                                    navigation.navigate('ClubManagement');
+                                } else {
+                                    setActiveClub(club);
+                                }
+                            }}
                         >
                             <Text style={[
                                 styles.clubPillText,
                                 isActive && { color: 'white', fontWeight: 'bold' }
                             ]}>{club.name}</Text>
-                            {isActive && <Ionicons name="checkmark-circle" size={16} color="white" style={{marginLeft: 6}} />}
+                            {isActive && <Ionicons name="settings-sharp" size={16} color="white" style={{marginLeft: 6, opacity: 0.9}} />}
                         </TouchableOpacity>
                     );
                 })}
@@ -586,68 +593,44 @@ export default function HomeScreen() {
             </View>
           ) : (
             <View>
-              {/* Club Card */}
-              <View style={styles.clubCard}>
-                  <View style={styles.clubHeader}>
-                    <View>
-                      <Text style={styles.clubName}>{activeClub.name}</Text>
-                      {(activeClub.ownerId === user?.id || activeClub.members.find(m => m.userId === user?.id)?.role === 'admin') && (
-                        <View style={styles.roleTag}>
-                            <Text style={styles.roleText}>ADMIN</Text>
-                        </View>
-                      )}
-                    </View>
-                    <TouchableOpacity onPress={() => navigation.navigate('ClubManagement')} style={styles.settingsBtn}>
-                        <Ionicons name="settings-outline" size={20} color={theme.colors.textPrimary} />
-                    </TouchableOpacity>
-                  </View>
-                  
-                  {/* Admin Approval Notification */}
-                  {(activeClub.ownerId === user?.id || activeClub.members.find(m => m.userId === user?.id)?.role === 'admin') && 
-                    activeClub.joinRequests && activeClub.joinRequests.length > 0 && (
-                      <TouchableOpacity 
-                         style={{
-                             backgroundColor: theme.colors.surfaceHighlight, 
-                             paddingVertical: 10, 
-                             paddingHorizontal: 12, 
-                             marginBottom: 12, 
-                             borderRadius: 8, 
-                             flexDirection: 'row', 
-                             alignItems: 'center',
-                             borderWidth: 1,
-                             borderColor: theme.colors.border
-                         }}
-                         onPress={() => navigation.navigate('ClubManagement')}
-                      >
-                         <View style={{
-                             backgroundColor: theme.colors.secondary, 
-                             width: 24, 
-                             height: 24, 
-                             borderRadius: 12, 
-                             justifyContent: 'center', 
-                             alignItems: 'center',
-                             marginRight: 10
-                         }}>
-                            <Text style={{color: 'white', fontSize: 12, fontWeight: 'bold'}}>{activeClub.joinRequests.length}</Text>
-                         </View>
-                         <View style={{flex: 1}}>
-                            <Text style={{color: theme.colors.textPrimary, fontWeight: '600', fontSize: 13}}>
-                                Membership Request{activeClub.joinRequests.length > 1 ? 's' : ''}
-                            </Text>
-                            <Text style={{color: theme.colors.textSecondary, fontSize: 11}}>Tap to review approvals</Text>
-                         </View>
-                         <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
-                      </TouchableOpacity>
-                  )}
-
-                  <TouchableOpacity style={styles.codeBox} onPress={copyInviteCode}>
-                      <View>
-                        <Text style={styles.codeLabel}>INVITE CODE</Text>
-                        <Text style={styles.codeValue}>{activeClub.inviteCode}</Text>
+              {/* Admin Approval Notification (Standalone) */}
+              {(activeClub.ownerId === user?.id || activeClub.members.find(m => m.userId === user?.id)?.role === 'admin') && 
+                activeClub.joinRequests && activeClub.joinRequests.length > 0 && (
+                  <TouchableOpacity 
+                      style={{
+                          backgroundColor: theme.colors.surfaceHighlight, 
+                          paddingVertical: 12, 
+                          paddingHorizontal: 16, 
+                          marginHorizontal: 16, 
+                          marginBottom: 12, 
+                          borderRadius: 12, 
+                          flexDirection: 'row', 
+                          alignItems: 'center',
+                          borderWidth: 1,
+                          borderColor: theme.colors.border
+                      }}
+                      onPress={() => navigation.navigate('ClubManagement')}
+                  >
+                      <View style={{
+                          backgroundColor: theme.colors.secondary, 
+                          width: 24, 
+                          height: 24, 
+                          borderRadius: 12, 
+                          justifyContent: 'center', 
+                          alignItems: 'center',
+                          marginRight: 12
+                      }}>
+                        <Text style={{color: 'white', fontSize: 12, fontWeight: 'bold'}}>{activeClub.joinRequests.length}</Text>
                       </View>
-                      <Ionicons name="copy-outline" size={20} color={theme.colors.textSecondary} />
+                      <View style={{flex: 1}}>
+                        <Text style={{color: theme.colors.textPrimary, fontWeight: '600', fontSize: 14}}>
+                            Membership Request{activeClub.joinRequests.length > 1 ? 's' : ''}
+                        </Text>
+                        <Text style={{color: theme.colors.textSecondary, fontSize: 12}}>Tap to review approvals</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
                   </TouchableOpacity>
-              </View>
+              )}
 
               {/* Best Partner Card (Restored) */}
               {stats.bestPartner && (
@@ -858,9 +841,9 @@ const createStyles = (theme: Theme) => StyleSheet.create({
       shadowRadius: 10,
       elevation: 4,
   },
-  clubHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
+  clubHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 0 },
   clubName: { fontSize: 24, fontWeight: '800', color: theme.colors.textPrimary, marginBottom: 4 },
-  roleTag: { backgroundColor: theme.colors.primary + '20', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start' },
+  roleTag: { backgroundColor: theme.colors.primary + '20', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start', marginTop: 4 },
   roleText: { color: theme.colors.primary, fontSize: 10, fontWeight: 'bold' },
   settingsBtn: { padding: 4 },
   codeBox: { backgroundColor: theme.colors.surfaceHighlight, padding: 12, borderRadius: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
