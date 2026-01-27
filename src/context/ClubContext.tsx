@@ -53,6 +53,7 @@ interface ClubContextType {
   guests: User[];
   userTotalStats: { played: number; wins: number; losses: number; winRate: number };
   refreshGlobalStats: () => Promise<void>;
+  allMatches: Match[]; // Matches from all clubs combined
 }
 
 const ClubContext = createContext<ClubContextType | undefined>(undefined);
@@ -69,10 +70,12 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
   const [invitedClubs, setInvitedClubs] = useState<Club[]>([]); // New
   const [guests, setGuests] = useState<User[]>([]);
   const [userTotalStats, setUserTotalStats] = useState({ played: 0, wins: 0, losses: 0, winRate: 0 });
+  const [allMatches, setAllMatches] = useState<Match[]>([]);
 
   const fetchGlobalStats = async () => {
     if (!user) {
         setUserTotalStats({ played: 0, wins: 0, losses: 0, winRate: 0 });
+        setAllMatches([]);
         return;
     }
 
@@ -80,6 +83,7 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
     // However, for data consistency with the dashboard, we now iterate through userClubs.
     if (userClubs.length === 0) {
         setUserTotalStats({ played: 0, wins: 0, losses: 0, winRate: 0 });
+        setAllMatches([]);
         return;
     }
     
@@ -180,6 +184,10 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
         console.log(`ClubContext: Stats Calculated -> Played: ${played}, Wins: ${wins}, Losses: ${losses}`);
         setUserTotalStats({ played, wins, losses, winRate });
         
+        // EXPOSE ALL MATCHES
+        const allMatchesList = Array.from(uniqueMatches.values()).sort((a,b) => b.date - a.date);
+        setAllMatches(allMatchesList);
+
     } catch (e) {
         console.error("Error fetching global stats:", e);
     }
@@ -881,7 +889,8 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
         toggleAdminRole,
         guests,
         userTotalStats,
-        refreshGlobalStats: fetchGlobalStats
+        refreshGlobalStats: fetchGlobalStats,
+        allMatches
     }}>
       {children}
     </ClubContext.Provider>

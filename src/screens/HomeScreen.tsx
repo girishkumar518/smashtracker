@@ -179,10 +179,12 @@ export default function HomeScreen() {
             }
         });
 
-        // Determine Winner Team
+        // Determine Winner Team (Handle potential string vs number values)
         let winnerTeam = m.winnerTeam;
-        const winnerPlayers = winnerTeam === 1 ? t1 : (winnerTeam === 2 ? t2 : []);
-        const loserPlayers = winnerTeam === 1 ? t2 : (winnerTeam === 2 ? t1 : []);
+        // @ts-ignore
+        const winnerPlayers = winnerTeam == 1 ? t1 : (winnerTeam == 2 ? t2 : []);
+        // @ts-ignore
+        const loserPlayers = winnerTeam == 1 ? t2 : (winnerTeam == 2 ? t1 : []);
         
         // --- 1. Basic Stats & Streaks ---
         allPlayers.forEach(pid => {
@@ -317,6 +319,20 @@ export default function HomeScreen() {
              </TouchableOpacity>
 
             <View style={{flexDirection:'row', gap: 12}}>
+                <TouchableOpacity 
+                    style={[styles.iconBtn, {
+                        backgroundColor: theme.colors.primary,
+                        shadowColor: theme.colors.primary,
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.3,
+                        shadowRadius: 6,
+                        elevation: 6,
+                        transform: [{scale: 1.05}]
+                    }]} 
+                    onPress={() => navigation.navigate('GlobalStats')}
+                >
+                    <Ionicons name="stats-chart" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
                 <TouchableOpacity style={styles.iconBtn} onPress={toggleTheme}>
                     <Ionicons name={isDark ? "sunny" : "moon"} size={20} color={theme.colors.textPrimary} />
                 </TouchableOpacity>
@@ -408,25 +424,9 @@ export default function HomeScreen() {
               </View>
            )}
 
-           {/* 3. Global Stats Strip (Compact) */}
-           {userTotalStats && (
-             <View style={styles.globalStatsStrip}>
-                <View style={styles.globalStatItem}>
-                    <Text style={styles.globalStatValue}>{userTotalStats.played}</Text>
-                    <Text style={styles.globalStatLabel}>Played</Text>
-                </View>
-                <View style={[styles.vertDivider, {backgroundColor: theme.colors.border}]} />
-                <View style={styles.globalStatItem}>
-                    <Text style={[styles.globalStatValue, {color: theme.colors.success}]}>{userTotalStats.wins}</Text>
-                    <Text style={styles.globalStatLabel}>Wins</Text>
-                </View>
-                <View style={[styles.vertDivider, {backgroundColor: theme.colors.border}]} />
-                <View style={styles.globalStatItem}>
-                    <Text style={[styles.globalStatValue, {color: theme.colors.primary}]}>{userTotalStats.winRate}%</Text>
-                    <Text style={styles.globalStatLabel}>Win Rate</Text>
-                </View>
-             </View>
-           )}
+           {/* 3. Global Stats Strip - REMOVED (Duplicate) 
+               We now display "Total Matches" & "Win Rate" in a dedicated card above the "Start New Match" button.
+           */}
 
            {/* 4. Filter & Date Control */}
            <View style={{ marginBottom: 16 }}>
@@ -485,14 +485,9 @@ export default function HomeScreen() {
                 <Text style={[styles.sectionTitle, {marginLeft: 4, marginBottom: 12}]}>Performance Highlights</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 12, paddingRight: 20}}>
                      
-                     {/* 1. Total Matches */}
-                     <View style={[styles.highlightCard, {backgroundColor: theme.colors.surface}]}>
-                         <View style={[styles.iconCircle, {backgroundColor: theme.colors.primary + '15'}]}>
-                            <MaterialCommunityIcons name="badminton" size={24} color={theme.colors.primary} />
-                         </View>
-                         <Text style={styles.highlightVal}>{periodStats.totalMatches}</Text>
-                         <Text style={styles.highlightLabel}>Matches Played</Text>
-                     </View>
+                     {/* 1. Total Matches - REMOVED to avoid confusion with Global Stats
+                         User found it confusing to have "Matches Played" here (Period) vs "Total Matches" at top (Global).
+                     */}
 
                      {/* 2. Hot Streak */}
                      {periodStats.longestStreak.val > 0 && (
@@ -645,46 +640,64 @@ export default function HomeScreen() {
                   </TouchableOpacity>
               </View>
 
-              {/* Stats Grid */}
-              <View style={styles.dashboardGrid}>
-                <View style={[styles.statCard, {flex:1 }]}>
-                  <MaterialCommunityIcons name="badminton" size={24} color={theme.colors.primary} />
-                  <Text style={styles.statNumber}>{stats.played}</Text>
-                  <Text style={styles.statLabel}>Matches</Text>
-                </View>
-                <View style={[styles.statCard, {flex:1 }]}>
-                  <Ionicons name="trophy-outline" size={24} color={theme.colors.secondary} />
-                  <Text style={styles.statNumber}>{stats.winRate}%</Text>
-                  <Text style={styles.statLabel}>Win Rate</Text>
-                </View>
-              </View>
+              {/* --- 2. GLOBAL STATS STRIP --- */}
+              {userTotalStats && (
+                  <View style={{
+                      flexDirection: 'row', 
+                      marginHorizontal: 16, 
+                      marginTop: 16, 
+                      backgroundColor: isDark ? '#1A1A1A' : '#FFFFFF',
+                      borderRadius: 12,
+                      padding: 16,
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.1,
+                      shadowRadius: 4,
+                      elevation: 3,
+                      alignItems: 'center',
+                      borderColor: isDark ? '#333' : '#eee',
+                      borderWidth: 1
+                  }}>
+                      <View style={{ flex: 1, alignItems: 'center', borderRightWidth: 1, borderRightColor: isDark ? '#333' : '#eee' }}>
+                          <Text style={{ fontSize: 12, color: theme.colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Total Matches</Text>
+                          <Text style={{ fontSize: 24, fontWeight: '800', color: theme.colors.textPrimary }}>{userTotalStats.played}</Text>
+                      </View>
+                      <View style={{ flex: 1, alignItems: 'center' }}>
+                          <Text style={{ fontSize: 12, color: theme.colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Win Rate</Text>
+                          <Text style={{ fontSize: 24, fontWeight: '800', color: theme.colors.primary }}>{userTotalStats.winRate}%</Text>
+                      </View>
+                  </View>
+              )}
 
+              {/* Best Partner Card (Restored) */}
               {stats.bestPartner && (
-                <View style={styles.partnerCard}>
+                <View style={[styles.partnerCard, { marginHorizontal: 16, marginTop: 12, marginBottom: 0 }]}>
                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
                        <View style={styles.avatarSmall}>
-                          <Text style={styles.avatarTextSmall}>{stats.bestPartner?.name?.charAt(0) || '?'}</Text>
+                          <Text style={styles.avatarTextSmall}>{(stats.bestPartner as any)?.name?.charAt(0) || '?'}</Text>
                        </View>
                        <View style={{marginLeft: 12}}>
                           <Text style={styles.partnerLabel}>BEST PARTNER</Text>
-                          <Text style={styles.partnerName}>{stats.bestPartner?.name || 'Unknown'}</Text>
+                          <Text style={styles.partnerName}>{(stats.bestPartner as any)?.name || 'Unknown'}</Text>
                        </View>
                    </View>
                    <View style={{alignItems: 'flex-end'}}>
-                      <Text style={styles.partnerRate}>{stats.bestPartner?.rate || 0}%</Text>
+                      <Text style={styles.partnerRate}>{(stats.bestPartner as any)?.rate || 0}%</Text>
                       <Text style={styles.partnerSub}>Win Rate</Text>
                    </View>
                 </View>
               )}
-              
+
+              {/* Start Button */}
               <TouchableOpacity 
-                style={styles.floatingStartBtn} 
+                style={[styles.floatingStartBtn, { marginTop: 24, marginHorizontal: 16 }]} 
                 onPress={() => navigation.navigate('MatchSetup')}
                 activeOpacity={0.8}
               >
                   <Ionicons name="play" size={24} color="white" style={{marginRight: 8}} />
                   <Text style={styles.startBtnText}>START NEW MATCH</Text>
               </TouchableOpacity>
+
 
                 {matches && matches.length > 0 && (
                 <View style={{ marginTop: 32, paddingBottom: 40 }}>
@@ -707,12 +720,16 @@ export default function HomeScreen() {
                         activeOpacity={0.7}
                         style={styles.matchItemContainer}
                      >
-                       <View style={[styles.matchCard, { borderLeftColor: m.winnerTeam === 1 ? theme.colors.primary : theme.colors.surfaceHighlight }]}>
+                       {/* @ts-ignore */}
+                       <View style={[styles.matchCard, { borderLeftColor: m.winnerTeam == 1 ? theme.colors.primary : theme.colors.surfaceHighlight }]}>
                           <View style={styles.matchHeader}>
                               <Text style={styles.matchDate}>{new Date(m.date).toLocaleDateString()}</Text>
-                              <View style={[styles.matchResultBadgeContainer, { backgroundColor: m.winnerTeam === 1 ? theme.colors.primary+'20' : theme.colors.surfaceHighlight }]}>
-                                  <Text style={[styles.matchResultBadge, {color: m.winnerTeam === 1 ? theme.colors.primary : theme.colors.textSecondary}]}>
-                                      {m.winnerTeam === 1 ? 'WON' : 'WON'}
+                              {/* @ts-ignore */}
+                              <View style={[styles.matchResultBadgeContainer, { backgroundColor: m.winnerTeam == 1 ? theme.colors.primary+'20' : theme.colors.surfaceHighlight }]}>
+                                  {/* @ts-ignore */}
+                                  <Text style={[styles.matchResultBadge, {color: m.winnerTeam == 1 ? theme.colors.primary : theme.colors.textSecondary}]}>
+                                      {/* @ts-ignore */}
+                                      {m.winnerTeam == 1 ? 'TEAM 1' : 'TEAM 2'}
                                   </Text>
                               </View>
                           </View>
@@ -720,30 +737,36 @@ export default function HomeScreen() {
                           <View style={styles.matchBody}>
                                {/* Team 1 */}
                                <View style={styles.matchTeamRow}>
-                                   {m.winnerTeam === 1 ? (
+                                   {/* @ts-ignore */}
+                                   {m.winnerTeam == 1 ? (
                                        <Ionicons name="trophy" size={14} color={theme.colors.secondary} style={{marginRight: 6}} />
                                    ) : (
                                        <View style={[styles.teamDot, {backgroundColor: theme.colors.textSecondary}]} />
                                    )}
-                                   <Text style={[styles.matchTeamName, m.winnerTeam===1 && styles.boldText]} numberOfLines={1} ellipsizeMode="tail">
+                                   {/* @ts-ignore */}
+                                   <Text style={[styles.matchTeamName, m.winnerTeam==1 && styles.boldText]} numberOfLines={1} ellipsizeMode="tail">
                                        {m.team1.map(id => getPlayerName(id, m)).join(' / ')}
                                    </Text>
-                                   <Text style={[styles.matchScoreText, m.winnerTeam===1 && styles.scoreWinner]}>
+                                   {/* @ts-ignore */}
+                                   <Text style={[styles.matchScoreText, m.winnerTeam==1 && styles.scoreWinner]}>
                                        {m.scores.map(s => s.team1Score).join(' - ')}
                                    </Text>
                                </View>
 
                                {/* Team 2 */}
                                <View style={styles.matchTeamRow}>
-                                   {m.winnerTeam === 2 ? (
+                                   {/* @ts-ignore */}
+                                   {m.winnerTeam == 2 ? (
                                        <Ionicons name="trophy" size={14} color={theme.colors.secondary} style={{marginRight: 6}} />
                                    ) : (
                                        <View style={[styles.teamDot, {backgroundColor: theme.colors.textSecondary}]} />
                                    )}
-                                   <Text style={[styles.matchTeamName, m.winnerTeam===2 && styles.boldText]} numberOfLines={1} ellipsizeMode="tail">
+                                   {/* @ts-ignore */}
+                                   <Text style={[styles.matchTeamName, m.winnerTeam==2 && styles.boldText]} numberOfLines={1} ellipsizeMode="tail">
                                        {m.team2.map(id => getPlayerName(id, m)).join(' / ')}
                                    </Text>
-                                   <Text style={[styles.matchScoreText, m.winnerTeam===2 && styles.scoreWinner]}>
+                                   {/* @ts-ignore */}
+                                   <Text style={[styles.matchScoreText, m.winnerTeam==2 && styles.scoreWinner]}>
                                        {m.scores.map(s => s.team2Score).join(' - ')}
                                    </Text>
                                </View>
@@ -994,28 +1017,7 @@ const createStyles = (theme: Theme) => StyleSheet.create({
   startBtnText: { color: 'white', fontWeight: '900', fontSize: 16, letterSpacing: 1 },
 
   // Club List Styles
-  statCard: {
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: theme.colors.surfaceHighlight, // Use theme color properly here if needed, but safe default
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 4,
-      elevation: 2,
-  },
-  clubPill: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: theme.colors.surface,
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: theme.colors.surfaceHighlight,
-      minWidth: 80,
-      justifyContent: 'center',
-  },
+  // statCard & clubPill removed (duplicates)
   activeClubPill: {
       backgroundColor: theme.colors.primary,
       borderColor: theme.colors.primary,
