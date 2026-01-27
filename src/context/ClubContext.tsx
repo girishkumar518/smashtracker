@@ -356,17 +356,10 @@ export const ClubProvider = ({ children }: { children: ReactNode }) => {
           }
           
           // EXTRACT GUESTS 
-          // 1. From Matches (Legacy / On-the-fly)
+          // Only use explicitly added guests from the club document.
+          // We no longer merge historical guests from past matches to avoid "zombie" guests reappearing.
           const guestMap = new Map<string, string>();
-          matches.forEach(m => {
-              if (m.guestNames) {
-                  Object.entries(m.guestNames).forEach(([id, name]) => {
-                      guestMap.set(id, name);
-                  });
-              }
-          });
           
-          // 2. From Club Document (Explicitly Added)
           if (activeClub.guestPlayers) {
               activeClub.guestPlayers.forEach(g => {
                   guestMap.set(g.id, g.name);

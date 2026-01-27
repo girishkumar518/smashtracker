@@ -50,30 +50,32 @@ def merge_guest_history(req: https_fn.CallableRequest) -> dict:
 
         for doc in docs:
             match_data = doc.to_dict()
+            updates = {}
             needs_update = False
             
-            # Check Team 1
+            # 1. Update Team 1
             team1 = match_data.get("team1", [])
             if team1 and guest_id in team1:
-                new_team1 = replace_id(team1)
-                batch.update(doc.reference, {"team1": new_team1})
+                updates["team1"] = replace_id(team1)
                 needs_update = True
                 
-            # Check Team 2
+            # 2. Update Team 2
             team2 = match_data.get("team2", [])
             if team2 and guest_id in team2:
-                # If team1 was improved, we must include it if needed
-                new_team1 = replace_id(match_data.get("team1", []))
-                new_team2 = replace_id(team2)
-                
-                batch.update(doc.reference, {
-                    "team1": new_team1,
-                    "team2": new_team2
-                })
+                updates["team2"] = replace_id(team2)
+                needs_update = True
+
+            # 3. Clean up guestNames map (Remove the old guest ID)
+            guest_names = match_data.get("guestNames", {})
+            if guest_names and guest_id in guest_names:
+                del guest_names[guest_id]
+                updates["guestNames"] = guest_names
                 needs_update = True
             
             if needs_update:
                 update_count += 1
+                batch.update(doc.reference, updates)
+                
                 # Batches have a limit of 500 ops. Commit if getting full.
                 if update_count % 400 == 0:
                     batch.commit()
