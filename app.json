@@ -33,7 +33,9 @@
     },
     "plugins": [
       "@react-native-google-signin/google-signin",
-      "expo-notifications"
+      "expo-notifications",
+      "@react-native-firebase/app",
+      "@react-native-firebase/crashlytics"
     ],
     "extra": {
       "eas": {
