@@ -196,17 +196,25 @@ export default function LiveScoreScreen() {
   // Orientation Lock
   useEffect(() => {
     const lockOrientation = async () => {
-      if (viewMode === 'SIDE') {
-        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-      } else {
-        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+      try {
+        if (viewMode === 'SIDE') {
+          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+        } else {
+          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+        }
+      } catch (error) {
+        console.warn("Screen orientation lock failed:", error);
       }
     };
     lockOrientation();
     
     // Cleanup: Reset to Portrait when unmounting
     return () => {
-      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+      try {
+        ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(err => console.warn("Reset orientation failed:", err));
+      } catch (e) {
+          // ignore
+      }
     };
   }, [viewMode]);
 

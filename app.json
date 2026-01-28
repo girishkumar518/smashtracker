@@ -2,8 +2,8 @@
   "expo": {
     "name": "SmashTracker",
     "slug": "smashtracker",
-    "version": "2.1.5",
-    "orientation": "portrait",
+    "version": "2.1.6",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -23,7 +23,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.gk.smashtracker",
-      "versionCode": 15,
+      "versionCode": 16,
       "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
@@ -33,12 +33,6 @@
     },
     "plugins": [
       "@react-native-google-signin/google-signin",
-      [
-        "expo-contacts",
-        {
-          "contactsPermission": "Allow $(PRODUCT_NAME) to access your contacts to invite friends."
-        }
-      ],
       "expo-notifications"
     ],
     "extra": {

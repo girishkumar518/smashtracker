@@ -3,45 +3,12 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 export default ({ config }: ConfigContext): ExpoConfig => {
   return {
     ...config,
-    name: "SmashTracker",
-    slug: "smashtracker",
-    version: "2.1.5",
-    orientation: "portrait",
-    icon: "./assets/icon.png",
-    userInterfaceStyle: "light",
-    newArchEnabled: true,
-    splash: {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    ios: {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.gk.smashtracker",
-      "buildNumber": "1"
-    },
+    name: config.name || "SmashTracker",
+    slug: config.slug || "smashtracker",
     android: {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "package": "com.gk.smashtracker",
-      "versionCode": 15,
-      // Dynamic Google Services File
-      "googleServicesFile": process.env.GOOGLE_SERVICES_FILE || "./google-services.json",
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      ...config.android,
+      // Dynamic Google Services File logic: only valid reason for app.config.ts here
+      googleServicesFile: process.env.GOOGLE_SERVICES_FILE || "./google-services.json",
     },
-    web: {
-      "favicon": "./assets/favicon.png"
-    },
-    plugins: [
-      "@react-native-google-signin/google-signin"
-    ],
-    extra: {
-      "eas": {
-        "projectId": "1f98d6aa-cad2-4fd2-a20f-2d53b330a3c9"
-      }
-    }
   };
 };
