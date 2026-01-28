@@ -7,13 +7,13 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "GOOGLE_SERVICES_FILE": "./google-services-dev.json",
-        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDj6...",
-        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "smashtracker-dev.firebaseapp.com",
-        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "smashtracker-dev",
-        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "smashtracker-dev.firebasestorage.app",
-        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "...",
-        "EXPO_PUBLIC_FIREBASE_APP_ID": "..."
+        "GOOGLE_SERVICES_FILE": "./google-services.json",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyBTRZeAz69QA2kXfCx_iBS8y3oV_sD4nBo",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "smashtracker-prod.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "smashtracker-prod",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "smashtracker-prod.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "951918212136",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:951918212136:android:1960517ecb1d1e27b3f11d"
       }
     },
     "preview": {

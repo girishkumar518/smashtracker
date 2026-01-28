@@ -195,8 +195,10 @@ export default function LiveScoreScreen() {
 
   // Orientation Lock
   useEffect(() => {
+    let isMounted = true;
     const lockOrientation = async () => {
       try {
+        if (!isMounted) return;
         if (viewMode === 'SIDE') {
           await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
         } else {
@@ -206,10 +208,14 @@ export default function LiveScoreScreen() {
         console.warn("Screen orientation lock failed:", error);
       }
     };
-    lockOrientation();
+    
+    // Add small delay to ensure navigation transition is done
+    const timer = setTimeout(lockOrientation, 100);
     
     // Cleanup: Reset to Portrait when unmounting
     return () => {
+      isMounted = false;
+      clearTimeout(timer);
       try {
         ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(err => console.warn("Reset orientation failed:", err));
       } catch (e) {
