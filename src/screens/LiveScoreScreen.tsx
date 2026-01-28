@@ -57,6 +57,33 @@ export default function LiveScoreScreen() {
   const plusOneOpacity1 = useRef(new Animated.Value(0)).current;
   const plusOneY2 = useRef(new Animated.Value(0)).current;
   const plusOneOpacity2 = useRef(new Animated.Value(0)).current;
+  
+  // Navigation Guard: Prevent accidental exit
+  const allowExitRef = useRef(false);
+  const pendingNavAction = useRef<any>(null);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      console.log("Exit attempt caught. Score:", score1, score2, "Sets:", sets.length);
+      
+      // If programmatically allowing exit (e.g. saving match), let it pass
+      if (allowExitRef.current) return;
+
+      // User requested to ALWAYS show the modal, even at 0-0.
+      // This prevents accidental exits immediately after starting.
+      // const hasUnsavedProgress = score1 > 0 || score2 > 0 || sets.length > 0;
+      
+      // Prevent default behavior (Always intercept back button)
+      e.preventDefault();
+
+      // Store action and show custom modal
+      console.log("Preventing exit, showing modal");
+      pendingNavAction.current = e.data.action;
+      setEndMatchModalVisible(true);
+    });
+
+    return unsubscribe;
+  }, [navigation, score1, score2, sets]);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -101,6 +128,44 @@ export default function LiveScoreScreen() {
 
   const styles = useMemo(() => createStyles(theme), [theme]);
 
+  // Name Shortening Logic
+  const displayNames = useMemo(() => {
+    const allPlayers = [...team1, ...team2].filter(p => !!p);
+    const nameMap: Record<string, string> = {};
+
+    // 1. Parse names
+    const parsed = allPlayers.map(p => {
+        const parts = p.name.trim().split(/\s+/);
+        // Use first token as First Name.
+        // Use first char of the *next* token (or last token) as disambiguator if needed.
+        // User said "name before the space" and "first letter of the after space".
+        // Assuming simple "First Last" structure.
+        return { 
+            id: p.id, 
+            first: parts[0] || "", 
+            lastInitial: parts.length > 1 ? parts[1].charAt(0) : "" 
+        };
+    });
+
+    // 2. Count First names to detect conflicts
+    const counts: Record<string, number> = {};
+    parsed.forEach(p => {
+        const key = p.first.toLowerCase();
+        counts[key] = (counts[key] || 0) + 1;
+    });
+
+    // 3. Build map
+    parsed.forEach(p => {
+        const key = p.first.toLowerCase();
+        if (counts[key] > 1 && p.lastInitial) {
+             nameMap[p.id] = `${p.first} ${p.lastInitial}`;
+        } else {
+             nameMap[p.id] = p.first;
+        }
+    });
+    return nameMap;
+  }, [team1, team2]);
+
   // Game State
   const [score1, setScore1] = useState(0);
   const [score2, setScore2] = useState(0);
@@ -115,19 +180,22 @@ export default function LiveScoreScreen() {
       // Only allow at 0-0 start of match or set
       if (score1 !== 0 || score2 !== 0) return;
 
+      // Logic: At 0-0 (Even), Server MUST be in the Right Box.
+      // If we select a new server, we must ensure they are effectively in the Right Box.
+      // For Doubles: Set the tapped player as the 'Right' player.
+      
+      const setRightIdx = team === 1 ? setT1RightPlayerIdx : setT2RightPlayerIdx;
+
       // 1. If tapping the serving team -> Change Server
       if (team === servingTeam) {
           setServerIdx(tappedPlayerIdx);
-          // Also Ensure they are in Right Box (for doubles) - simplified logic
-          if (team === 1) setT1RightPlayerIdx(tappedPlayerIdx);
-          else setT2RightPlayerIdx(tappedPlayerIdx);
+          if (isDoubles) setRightIdx(tappedPlayerIdx);
       } 
       // 2. If tapping non-serving team -> Switch Serving Team
       else {
           setServingTeam(team);
           setServerIdx(tappedPlayerIdx);
-          if (team === 1) setT1RightPlayerIdx(tappedPlayerIdx);
-          else setT2RightPlayerIdx(tappedPlayerIdx);
+          if (isDoubles) setRightIdx(tappedPlayerIdx);
       }
   };
 
@@ -230,10 +298,20 @@ export default function LiveScoreScreen() {
     let targetY = 0; // 0 = Top Row (or Top of Col), 1 = Bottom Row/Side
 
     const isT1Serving = servingTeam === 1;
-    // Determine if server is in the 'Right' pos (relative to team logic)
-    // Team 1 Right Index vs Server Index
-    const isT1Right = t1RightPlayerIdx === serverIdx;
-    const isT2Right = t2RightPlayerIdx === serverIdx;
+    
+    // Determine if server is in the 'Right' pos
+    let isT1Right = false;
+    let isT2Right = false;
+
+    if (isDoubles) {
+        // In doubles, check if the designated server is currently in the Right box
+        isT1Right = t1RightPlayerIdx === serverIdx;
+        isT2Right = t2RightPlayerIdx === serverIdx;
+    } else {
+        // In singles, position is strictly determined by score
+        isT1Right = score1 % 2 === 0;
+        isT2Right = score2 % 2 === 0;
+    }
 
     if (viewMode === 'FRONT') {
         if (isT1Serving) {
@@ -347,8 +425,11 @@ export default function LiveScoreScreen() {
         if (!isDoubles) {
              setServerIdx(0);
         } else { 
+             // Fixed: When Score is Even, Serve from Right.
+             // We select the player currently in the Right box (t2RightPlayerIdx).
+             // When Odd, Serve from Left (the other player).
              const screenLeftIdx = t2RightPlayerIdx === 0 ? 1 : 0;
-             setServerIdx(isEven ? screenLeftIdx : t2RightPlayerIdx);
+             setServerIdx(isEven ? t2RightPlayerIdx : screenLeftIdx);
         }
       }
     }
@@ -405,6 +486,7 @@ export default function LiveScoreScreen() {
         guestNames
       };
       recordMatch(newMatch);
+      allowExitRef.current = true; // Allow navigation
       (navigation as any).replace('MatchOverview', { match: newMatch });
     } else {
       setCurrentSet(currentSet + 1);
@@ -463,7 +545,14 @@ export default function LiveScoreScreen() {
       setEndMatchModalVisible(false);
       
       if (action === 'discard') {
-          navigation.goBack();
+          allowExitRef.current = true; // Allow navigation
+          
+          if (pendingNavAction.current) {
+              navigation.dispatch(pendingNavAction.current);
+              pendingNavAction.current = null;
+          } else {
+              navigation.goBack();
+          }
           return;
       }
 
@@ -498,6 +587,7 @@ export default function LiveScoreScreen() {
         guestNames
       };
       
+      allowExitRef.current = true; // Allow navigation
       recordMatch(newMatch);
       (navigation as any).replace('MatchOverview', { match: newMatch });
   };
@@ -551,37 +641,64 @@ export default function LiveScoreScreen() {
          }
      }
 
-     return (
-        <TouchableOpacity 
-            activeOpacity={0.8}
-            disabled={score1 !== 0 || score2 !== 0}
-            onPress={() => handlePlayerTap(team, playerIdx)}
-            style={[
-            styles.playerPill,
-            isServing && styles.servingPill,
-            isReceiving && styles.receivingPill,
-            team === 1 ? styles.t1Pill : styles.t2Pill
-        ]}>
-             <View style={[styles.avatarCircle, { backgroundColor: team === 1 ? TEAM_COLORS.team1 : TEAM_COLORS.team2 }]}>
-                 <Text style={styles.avatarText}>
-                    {player?.name?.charAt(0).toUpperCase() || 'P'}
-                 </Text>
-             </View>
-             
-             <View style={styles.pillContent}>
-                <Text style={styles.playerName} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>
-                    {player?.name || (isDoubles ? 'P'+(playerIdx+1) : '')}
-                </Text>
-             </View>
+     const isFront = viewMode === 'FRONT';
 
-             <View style={styles.roleIconContainer}>
-                {isReceiving && (
-                    <View style={[styles.roleBadge, {backgroundColor: '#E0E0E0', justifyContent: 'center', alignItems: 'center'}]}>
-                        <Text style={{fontSize: 14, lineHeight: 18}}>🏸</Text>
-                    </View>
-                )}
-             </View>
-        </TouchableOpacity>
+     return (
+        <>
+            {/* Receiver Token (Centered in Box for Front View) */}
+            {isReceiving && isFront && (
+                 <View style={[
+                     styles.roleBadge, 
+                     {
+                        position: 'absolute',
+                        top: '50%', left: '50%',
+                        transform: [{translateX: -12}, {translateY: -12}], // Center of 24x24
+                        backgroundColor: '#E0E0E0',
+                        zIndex: 10
+                     }
+                 ]}>
+                    <Text style={{fontSize: 14, lineHeight: 18}}>🏸</Text>
+                 </View>
+            )}
+
+            <TouchableOpacity 
+                activeOpacity={0.8}
+                disabled={score1 !== 0 || score2 !== 0}
+                onPress={() => handlePlayerTap(team, playerIdx)}
+                style={[
+                isFront ? styles.playerBar : styles.playerPill,
+                !isFront && (team === 1 ? styles.t1Pill : styles.t2Pill),
+                isFront && { borderBottomColor: team === 1 ? TEAM_COLORS.team1 : TEAM_COLORS.team2, borderBottomWidth: 4 },
+                isReceiving && !isFront && styles.receivingPill, // Only style pill if not front
+            ]}>
+                 <View style={[
+                     styles.avatarCircle, 
+                     { backgroundColor: team === 1 ? TEAM_COLORS.team1 : TEAM_COLORS.team2 },
+                     isFront && { width: 36, height: 36, borderRadius: 18 }
+                 ]}>
+                     <Text style={[styles.avatarText, isFront && { fontSize: 16 }]}>
+                        {player?.name?.charAt(0).toUpperCase() || 'P'}
+                     </Text>
+                 </View>
+                 
+                 <View style={styles.pillContent}>
+                    <Text style={[styles.playerName, isFront && { fontSize: 18, textAlign: 'left' }]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>
+                        {player ? (displayNames[player.id] || player.name) : (isDoubles ? 'P'+(playerIdx+1) : '')}
+                    </Text>
+                 </View>
+
+                 {/* Side View Role Icon (Inside Pill) */}
+                 {!isFront && (
+                     <View style={styles.roleIconContainer}>
+                        {isReceiving && (
+                            <View style={[styles.roleBadge, {backgroundColor: '#E0E0E0', justifyContent: 'center', alignItems: 'center'}]}>
+                                <Text style={{fontSize: 14, lineHeight: 18}}>🏸</Text>
+                            </View>
+                        )}
+                     </View>
+                 )}
+            </TouchableOpacity>
+        </>
      );
   };
 
@@ -738,12 +855,15 @@ export default function LiveScoreScreen() {
                         position: 'absolute',
                         backgroundColor: '#FFD700',
                         zIndex: 20,
-                        width: 30, height: 30, borderRadius: 15,
-                        left: serviceAnimX.interpolate({inputRange: [0, 1], outputRange: ['25%', '75%']}),
+                        width: 32, height: 32, borderRadius: 16,
+                        left: serviceAnimX.interpolate({
+                            inputRange: [0, 1], 
+                            outputRange: viewMode === 'SIDE' ? ['42%', '92%'] : ['25%', '75%']
+                        }),
                         top: serviceAnimY.interpolate({inputRange: [0, 1], outputRange: ['25%', '75%']}),
                         transform: [
-                            { translateX: -15 }, // Center anchor
-                            { translateY: -15 },
+                            { translateX: -16 }, 
+                            { translateY: -16 },
                             { scale: pulseAnim }
                         ],
                         shadowColor: "#000",
@@ -868,7 +988,10 @@ export default function LiveScoreScreen() {
 
                 <TouchableOpacity 
                     style={[styles.modalBtn, {backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.colors.textSecondary}]} 
-                    onPress={() => setEndMatchModalVisible(false)}
+                    onPress={() => {
+                        setEndMatchModalVisible(false);
+                        pendingNavAction.current = null; // Clear pending action if cancelled
+                    }}
                 >
                     <Text style={[styles.modalBtnText, {color: theme.colors.textPrimary}]}>Cancel</Text>
                 </TouchableOpacity>
@@ -1084,7 +1207,7 @@ const createStyles = (theme: Theme) => StyleSheet.create({
       opacity: 0.8
   },
 
-  // Player Pill
+  // Player Pill (Side View / Default)
   playerPill: { 
       flexDirection: 'row', 
       alignItems: 'center', 
@@ -1101,6 +1224,19 @@ const createStyles = (theme: Theme) => StyleSheet.create({
       shadowOpacity: 0.25,
       shadowRadius: 3.84,
       elevation: 3,
+  },
+  // Player Bar (Front View - Full Width Bottom)
+  playerBar: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0, 
+      right: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      width: '100%',
   },
   t1Pill: { borderColor: TEAM_COLORS.team1, borderLeftWidth: 4 },
   t2Pill: { borderColor: TEAM_COLORS.team2, borderLeftWidth: 4 },
