@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, StatusBar, Dimensions,
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { useClub } from '../context/ClubContext';
 import { Match, MatchSet } from '../models/types';
 import { useTheme } from '../context/ThemeContext';
@@ -191,6 +192,23 @@ export default function LiveScoreScreen() {
   const [statsModalVisible, setStatsModalVisible] = useState(false);
   const [resetModalVisible, setResetModalVisible] = useState(false);
   const [endMatchModalVisible, setEndMatchModalVisible] = useState(false);
+
+  // Orientation Lock
+  useEffect(() => {
+    const lockOrientation = async () => {
+      if (viewMode === 'SIDE') {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+      } else {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+      }
+    };
+    lockOrientation();
+    
+    // Cleanup: Reset to Portrait when unmounting
+    return () => {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+    };
+  }, [viewMode]);
 
   // Update Service Position based on state
   useEffect(() => {
@@ -414,6 +432,16 @@ export default function LiveScoreScreen() {
     setHistory([]);
     setT1RightPlayerIdx(0);
     setT2RightPlayerIdx(0);
+
+    // Reset Serving Team to set starter
+    let startTeam: 1 | 2 = 1;
+    if (sets.length > 0) {
+        const lastSet = sets[sets.length - 1];
+        if (lastSet.t2 > lastSet.t1) startTeam = 2;
+    }
+    setServingTeam(startTeam);
+    setServerIdx(0);
+
     setResetModalVisible(false);
   };
 
@@ -594,7 +622,25 @@ export default function LiveScoreScreen() {
 
       {/* Court Visualisation */}
       <Animated.View style={[styles.mainArea, {opacity: fadeAnim}]}>
-          <View style={styles.courtBorder}>
+          {viewMode === 'SIDE' && (
+            <View style={[styles.controlsColumn, { marginRight: 8 }]}>
+                <TouchableOpacity 
+                    style={[styles.scoreBtn, {backgroundColor: TEAM_COLORS.team1}]} 
+                    onPress={() => handleScore(1)}
+                    activeOpacity={0.7}
+                >
+                    <Ionicons name="add" size={32} color="white" />
+                    <Text style={styles.btnLabel}>T1</Text>
+                </TouchableOpacity>
+                {(score1 === 0 && score2 === 0) && (
+                    <TouchableOpacity style={styles.miniSwapBtn} onPress={() => manualSwapPositions(1)}>
+                        <Ionicons name="repeat" size={16} color="white" />
+                    </TouchableOpacity>
+                )}
+            </View>
+          )}
+
+          <View style={[styles.courtBorder, viewMode === 'SIDE' && { marginRight: 8 }]}>
             <View style={[styles.court, {flexDirection: viewMode === 'SIDE' ? 'row' : 'column'}]}>
                 
                 {/* 
@@ -716,22 +762,26 @@ export default function LiveScoreScreen() {
                   </TouchableOpacity>
               )}
               
-              <View style={{flex: 0.1}} /> 
+              {viewMode === 'FRONT' && (
+                <>
+                    <View style={{flex: 0.1}} /> 
 
-              {(score1 === 0 && score2 === 0) && (
-                  <TouchableOpacity style={styles.miniSwapBtn} onPress={() => manualSwapPositions(1)}>
-                      <Ionicons name="repeat" size={16} color="white" />
-                  </TouchableOpacity>
+                    {(score1 === 0 && score2 === 0) && (
+                        <TouchableOpacity style={styles.miniSwapBtn} onPress={() => manualSwapPositions(1)}>
+                            <Ionicons name="repeat" size={16} color="white" />
+                        </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity 
+                        style={[styles.scoreBtn, {backgroundColor: TEAM_COLORS.team1}]} 
+                        onPress={() => handleScore(1)}
+                        activeOpacity={0.7}
+                    >
+                        <Ionicons name="add" size={32} color="white" />
+                        <Text style={styles.btnLabel}>T1</Text>
+                    </TouchableOpacity>
+                </>
               )}
-
-              <TouchableOpacity 
-                style={[styles.scoreBtn, {backgroundColor: TEAM_COLORS.team1}]} 
-                onPress={() => handleScore(1)}
-                activeOpacity={0.7}
-              >
-                  <Ionicons name="add" size={32} color="white" />
-                  <Text style={styles.btnLabel}>T1</Text>
-              </TouchableOpacity>
           </View>
       </Animated.View>
 
