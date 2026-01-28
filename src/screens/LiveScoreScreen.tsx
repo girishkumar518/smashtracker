@@ -69,8 +69,8 @@ export default function LiveScoreScreen() {
     // Start looping pulse
     Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.25, duration: 800, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true })
+        Animated.timing(pulseAnim, { toValue: 1.25, duration: 800, useNativeDriver: false }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: false })
       ])
     ).start();
   }, []);
