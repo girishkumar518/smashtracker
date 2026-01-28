@@ -2,7 +2,7 @@
   "expo": {
     "name": "SmashTracker",
     "slug": "smashtracker",
-    "version": "3.0.0",
+    "version": "3.0.1",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
