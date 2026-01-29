@@ -608,17 +608,10 @@ export default function LiveScoreScreen() {
          const servingScore = servingTeam === 1 ? score1 : score2;
          const isEvenServe = servingScore % 2 === 0;
 
-         if (team === 1) {
-             const shouldBeHere = (isEvenServe && position === 'R') || (!isEvenServe && position === 'L');
-             if (!shouldBeHere) return <View style={styles.emptyBox} />;
-             playerIdx = 0;
-         }
-         
-         if (team === 2) {
-             const shouldBeHere = (isEvenServe && position === 'L') || (!isEvenServe && position === 'R');
-             if (!shouldBeHere) return <View style={styles.emptyBox} />;
-             playerIdx = 0;
-         }
+         // In Singles, BOTH players must be in the correct service box (Even=Right, Odd=Left)
+         const shouldBeHere = (isEvenServe && position === 'R') || (!isEvenServe && position === 'L');
+         if (!shouldBeHere) return <View style={styles.emptyBox} />;
+         playerIdx = 0;
      }
 
      const player = team === 1 ? team1[playerIdx] : team2[playerIdx];
