@@ -1,3 +1,16 @@
+# SmashTracker Release Notes - v1.0.2 (Performance & Stats)
+
+## ✨ New Features
+- **Strong Teams Analytics**: Added "Club Dominance" section to Global Stats and Home Screen.
+  - Highlights unbeatable pairings (0 losses).
+  - Ranks teams by win rate and volume.
+  - Smart logic to filter for active pairs (min 2 matches).
+
+## 🐛 Bug Fixes
+- **Live Score Rendering**: Fixed player positioning in Singles matches (Even=Right, Odd=Left).
+- **Security**: Rotated API Keys and enforced strict Secret management for CI/CD.
+- **Stability**: Integrated Firebase Crashlytics for real-time crash reporting.
+
 # SmashTracker Release Notes - v1.0.1 (Bug Fixes)
 
 ## 🐛 Bug Fixes

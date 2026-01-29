@@ -340,7 +340,7 @@ export default function LiveScoreScreen() {
         Animated.spring(serviceAnimX, { toValue: targetX, useNativeDriver: false, friction: 6, tension: 50 }),
         Animated.spring(serviceAnimY, { toValue: targetY, useNativeDriver: false, friction: 6, tension: 50 })
     ]).start();
-  }, [servingTeam, serverIdx, t1RightPlayerIdx, t2RightPlayerIdx, viewMode]);
+  }, [servingTeam, serverIdx, t1RightPlayerIdx, t2RightPlayerIdx, viewMode, score1, score2, isDoubles]);
 
   const MAX_POINTS = pointsPerSet; 
   const CAP_POINTS = 30; // Hard cap usually

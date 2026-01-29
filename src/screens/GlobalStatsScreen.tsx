@@ -12,7 +12,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export default function GlobalStatsScreen() {
     const { theme, isDark } = useTheme();
-    const { userTotalStats, allMatches, members, allUsers } = useClub();
+    const { userTotalStats, allMatches, members, allUsers, activeClub } = useClub();
     const { user } = useAuth();
     const navigation = useNavigation<any>();
     const [visibleCount, setVisibleCount] = React.useState(5);
@@ -26,6 +26,13 @@ export default function GlobalStatsScreen() {
         if (member) return member.displayName;
         const u = allUsers?.find(u => u.id === id);
         if (u) return u.displayName;
+
+        // Active Club Guest check
+        if (activeClub?.guestPlayers) {
+            const guest = activeClub.guestPlayers.find(g => g.id === id);
+            if (guest) return guest.name;
+        }
+
         if (id.startsWith('guest_')) return 'Guest';
         return 'Unknown';
     };
@@ -188,6 +195,7 @@ export default function GlobalStatsScreen() {
                         </View>
                     </View>
                 </View>
+
 
                 {/* 2. Visual Diagrams Section */}
                 {stats && (
@@ -426,5 +434,6 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     matchDate: { fontSize: 11, color: theme.colors.textSecondary, marginBottom: 2 },
     matchVersus: { fontSize: 14, fontWeight: '600', color: theme.colors.textPrimary },
     scoreBadge: { backgroundColor: theme.colors.surfaceHighlight, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-    scoreText: { fontWeight: '700', color: theme.colors.textPrimary, fontSize: 12 }
+    scoreText: { fontWeight: '700', color: theme.colors.textPrimary, fontSize: 12 },
+
 });

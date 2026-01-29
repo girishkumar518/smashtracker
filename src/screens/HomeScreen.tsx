@@ -263,6 +263,52 @@ export default function HomeScreen() {
         }
     });
 
+    // --- 3. Top Teams (Club Dominance) from RELEVANT matches ---
+    const teamStats: Record<string, { wins: number, played: number, ids: string[] }> = {};
+    
+    sortedMatches.forEach(m => {
+        // Team 1 Pair
+        if (m.team1 && m.team1.length === 2) {
+             const key = [...m.team1].sort().join(',');
+             if (!teamStats[key]) teamStats[key] = { wins: 0, played: 0, ids: m.team1 };
+             teamStats[key].played++;
+             // @ts-ignore
+             if (m.winnerTeam == 1) teamStats[key].wins++;
+        }
+        // Team 2 Pair
+        if (m.team2 && m.team2.length === 2) {
+             const key = [...m.team2].sort().join(',');
+             if (!teamStats[key]) teamStats[key] = { wins: 0, played: 0, ids: m.team2 };
+             teamStats[key].played++;
+             // @ts-ignore
+             if (m.winnerTeam == 2) teamStats[key].wins++;
+        }
+    });
+
+    // Filter & Sort for Top Teams
+    // Min matches depends on period? Let's keep it 2 for now to show data.
+    let qualified = Object.values(teamStats).filter(t => t.played >= 2);
+    
+    // Sort: Unbeaten > Win Rate > Volume
+    qualified.sort((a, b) => {
+        const aLosses = a.played - a.wins;
+        const bLosses = b.played - b.wins;
+        
+        // 1. Unbeaten Check
+        if (aLosses === 0 && bLosses > 0) return -1;
+        if (bLosses === 0 && aLosses > 0) return 1;
+
+        // 2. Win Rate
+        const aRate = a.wins / a.played;
+        const bRate = b.wins / b.played;
+        if (bRate !== aRate) return bRate - aRate;
+
+        // 3. Volume
+        return b.wins - a.wins;
+    });
+
+    const topTeams = qualified.slice(0, 3);
+
     // FIND LEADERS
     let mostPlayed = { name: '-', val: 0 };
     let mostWins = { name: '-', val: 0 };
@@ -307,7 +353,8 @@ export default function HomeScreen() {
         bestPartnership,
         longestStreak,
         myStats, // Exposed
-        myBestPartner // Exposed
+        myBestPartner, // Exposed
+        topTeams // Exposed
     };
   }, [matches, statsMode, statsDate, getPlayerName]);
 
@@ -602,11 +649,66 @@ export default function HomeScreen() {
                     <Text style={{color: theme.colors.textSecondary, marginTop: 12}}>No activity for this period.</Text>
                 </View>
            )}
+
+           {/* 5.5 Club Dominance (Top Teams from Period) */}
+           {periodStats && (periodStats as any).topTeams && (periodStats as any).topTeams.length > 0 && (
+               <View style={{ marginBottom: 24 }}>
+                   <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12, marginLeft: 4}}>
+                        <Text style={styles.sectionTitle}>Club Dominance</Text>
+                        <View style={{backgroundColor: theme.colors.surfaceHighlight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, marginLeft: 8}}>
+                                <Text style={{fontSize: 10, color: theme.colors.textSecondary}}>Top 2 Matches Min</Text>
+                        </View>
+                   </View>
+                   
+                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{paddingRight: 20}}>
+                        {(periodStats as any).topTeams.map((team: any, index: number) => {
+                                const isUnbeaten = (team.played - team.wins) === 0;
+                                const winRate = Math.round((team.wins / team.played) * 100);
+                                const isGold = index === 0;
+                                
+                                return (
+                                    <View key={index} style={[
+                                        styles.teamCard, 
+                                        isGold && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }
+                                    ]}>
+                                        <View style={{position: 'absolute', top: 12, right: 12}}>
+                                             {isUnbeaten ? (
+                                                <Ionicons name="shield-checkmark" size={20} color={isGold ? '#FFD700' : theme.colors.success} /> 
+                                             ) : (
+                                                <Ionicons name="trophy" size={20} color={isGold ? 'white' : theme.colors.textSecondary} /> 
+                                             )}
+                                        </View>
+                                        
+                                        <View style={{marginTop: 4}}>
+                                            <Text style={[styles.teamRank, isGold && {color: 'rgba(255,255,255,0.7)'}]}>RANK #{index + 1}</Text>
+                                            <Text style={[styles.teamName, isGold && {color: 'white'}]} numberOfLines={2}>
+                                                {team.ids.map((id: string) => getPlayerName(id)).join(' & ')}
+                                            </Text>
+                                        </View>
+                                        
+                                        <View style={{flexDirection: 'row', alignItems: 'flex-end', marginTop: 16, justifyContent: 'space-between'}}>
+                                            <View>
+                                                <Text style={[styles.teamStatBig, isGold && {color: 'white'}]}>{winRate}%</Text>
+                                                <Text style={[styles.teamStatLabel, isGold && {color: 'rgba(255,255,255,0.8)'}]}>Win Rate</Text>
+                                            </View>
+                                            <View style={{alignItems: 'flex-end'}}>
+                                                <Text style={[styles.teamSubStat, isGold && {color: 'white'}]}>
+                                                    {team.wins}W - {team.played - team.wins}L
+                                                </Text>
+                                                <Text style={[styles.teamStatLabel, isGold && {color: 'rgba(255,255,255,0.8)'}]}>{team.played} Matches</Text>
+                                            </View>
+                                        </View>
+                                    </View>
+                                );
+                        })}
+                   </ScrollView>
+               </View>
+           )}
            
            {/* 6. My Stats & Best Partner (Period Context) */}
            {periodStats && (periodStats as any).myStats && (periodStats as any).myStats.played > 0 && (
-             <View style={{ marginHorizontal: 20, marginBottom: 24 }}>
-                <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
+             <View style={{ marginBottom: 24 }}>
+                <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, marginLeft: 4}}>
                     <Text style={[styles.sectionTitle, {marginBottom: 0}]}>My Performance</Text>
                     <View style={{backgroundColor: theme.colors.surfaceHighlight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4}}>
                         <Text style={{fontSize: 10, fontWeight: '700', color: theme.colors.textSecondary}}>
@@ -1124,6 +1226,51 @@ const createStyles = (theme: Theme) => StyleSheet.create({
   scoreWinner: { color: theme.colors.textPrimary },
 
   adminTip: { textAlign: 'center', marginTop: 8, color: theme.colors.textSecondary, fontSize: 10, fontStyle: 'italic' },
+
+  // -- Club Dominance Styles --
+  teamCard: {
+      width: 220,
+      backgroundColor: theme.colors.surface,
+      borderRadius: 16,
+      padding: 16,
+      marginRight: 12,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 2,
+      borderWidth: 1,
+      borderColor: theme.colors.surfaceHighlight
+  },
+  teamRank: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: theme.colors.textSecondary,
+      letterSpacing: 1,
+      marginBottom: 4
+  },
+  teamName: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: theme.colors.textPrimary,
+      lineHeight: 20
+  },
+  teamStatBig: {
+      fontSize: 24,
+      fontWeight: '800',
+      color: theme.colors.primary,
+      lineHeight: 28
+  },
+  teamStatLabel: {
+      fontSize: 10,
+      color: theme.colors.textSecondary,
+      marginTop: 2
+  },
+  teamSubStat: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: theme.colors.textPrimary,
+  },
   
   footer: { alignItems: 'center', marginBottom: 20, marginTop: 20 },
   footerText: { color: theme.colors.textSecondary, fontSize: 12, fontWeight: '600' },
