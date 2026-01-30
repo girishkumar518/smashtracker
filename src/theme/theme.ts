@@ -81,4 +81,4 @@ export const darkTheme = {
 darkTheme.colors.textSecondary = tokens.colors.gray500; // Actually simpler to use a lighter gray for secondary text on dark bg.
 darkTheme.colors.textSecondary = '#A0AEC0'; // Gray 400
 
-export type Theme = typeof lightTheme;
+export type Theme = typeof lightTheme | typeof darkTheme;

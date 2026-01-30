@@ -1,5 +1,5 @@
-import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle, ActivityIndicator } from 'react-native';
+import React, { ReactNode } from 'react';
+import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle, ActivityIndicator, View } from 'react-native';
 
 interface ButtonProps {
   onPress: () => void;
@@ -10,9 +10,10 @@ interface ButtonProps {
   textStyle?: TextStyle;
   loading?: boolean;
   disabled?: boolean;
+  icon?: ReactNode;
 }
 
-export default function Button({ onPress, title, variant = 'primary', size = 'medium', style, textStyle, loading = false, disabled = false }: ButtonProps) {
+export default function Button({ onPress, title, variant = 'primary', size = 'medium', style, textStyle, loading = false, disabled = false, icon }: ButtonProps) {
   const getBackgroundColor = () => {
     if (disabled) return '#CBD5E0';
     switch (variant) {
@@ -65,7 +66,10 @@ export default function Button({ onPress, title, variant = 'primary', size = 'me
       {loading ? (
         <ActivityIndicator color={getTextColor()} />
       ) : (
-        <Text style={[styles.text, { color: getTextColor(), fontSize: getTextSize() }, textStyle]}>{title}</Text>
+        <View style={styles.content}>
+          {icon}
+          <Text style={[styles.text, { color: getTextColor(), fontSize: getTextSize() }, textStyle]}>{title}</Text>
+        </View>
       )}
     </TouchableOpacity>
   );
@@ -77,6 +81,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   text: {
     fontWeight: '600',
