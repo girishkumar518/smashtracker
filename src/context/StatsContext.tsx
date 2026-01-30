@@ -3,7 +3,7 @@ import { Match, SeededUser } from '../models/types';
 import { useAuth } from './AuthContext';
 import { useClub } from './ClubContext';
 import { useMatch } from './MatchContext';
-import { getMatchesByClub } from '../repositories/matchRepository';
+import { getMatchesByClub, getPersonalMatchesForUser } from '../repositories/matchRepository';
 
 interface StatsContextType {
 	seededMembers: SeededUser[];
@@ -88,11 +88,13 @@ export const StatsProvider = ({ children }: { children: ReactNode }) => {
 
 		try {
 			const matchesPromises = userClubs.map(club => getMatchesByClub(club.id));
-			const snapshots = await Promise.all(matchesPromises);
+			const clubSnapshots = await Promise.all(matchesPromises);
+			const personalMatches = await getPersonalMatchesForUser(user.id);
 
 			const uniqueMatches = new Map<string, Match>();
 
-			snapshots.forEach(chap => {
+			clubSnapshots.forEach(chap => {
+				if (!chap || !chap.docs) return;
 				chap.docs.forEach(d => {
 					const m = { id: d.id, ...d.data() } as Match;
 					const playedInT1 = m.team1 && m.team1.includes(user.id);
@@ -103,6 +105,12 @@ export const StatsProvider = ({ children }: { children: ReactNode }) => {
 					}
 				});
 			});
+
+			if (Array.isArray(personalMatches)) {
+				personalMatches.forEach(m => {
+					uniqueMatches.set(m.id, m);
+				});
+			}
 
 			console.log(`StatsContext: Found ${uniqueMatches.size} unique matches across active clubs.`);
 

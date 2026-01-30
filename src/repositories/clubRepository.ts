@@ -5,9 +5,11 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   query,
+  setDoc,
   updateDoc,
   where
 } from 'firebase/firestore';
@@ -31,6 +33,14 @@ export const subscribeToClubs = (
 
 export const addClub = async (data: Omit<Club, 'id'>) => {
   return addDoc(collection(db, 'clubs'), data);
+};
+
+export const setClubById = async (clubId: string, data: Omit<Club, 'id'>) => {
+  return setDoc(doc(db, 'clubs', clubId), data);
+};
+
+export const getClubById = async (clubId: string) => {
+  return getDoc(doc(db, 'clubs', clubId));
 };
 
 export const updateClub = async (clubId: string, data: Partial<Club>) => {

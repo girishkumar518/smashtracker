@@ -14,7 +14,7 @@ interface AuthContextType {
   signIn: (email: string, password?: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
-  updateProfile: (data: { displayName?: string, phoneNumber?: string }) => Promise<void>;
+  updateProfile: (data: { displayName?: string, phoneNumber?: string, pin?: string }) => Promise<void>;
   deleteAccount: () => Promise<void>;
 }
 
@@ -51,6 +51,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             email: firebaseUser.email || existingData.email || '',
             displayName: existingData.displayName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Player',
             phoneNumber: existingData.phoneNumber, // Persist phone number from Firestore
+            pin: existingData.pin,
           };
 
           setUser(userData);
@@ -189,7 +190,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const updateProfile = async (data: { displayName?: string, phoneNumber?: string }) => {
+  const updateProfile = async (data: { displayName?: string, phoneNumber?: string, pin?: string }) => {
     if (user) {
       // Optimistic update
       setUser({ ...user, ...data });

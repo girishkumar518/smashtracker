@@ -9,15 +9,17 @@ import { useStats } from '../context/StatsContext';
 import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme/theme';
 import { useNavigation } from '@react-navigation/native';
+import { isPersonalClubId } from '../services/personalClubService';
 
 export default function HomeScreen() {
   const { user, signOut } = useAuth();
     const { activeClub, members, pendingClubs, allUsers, userClubs, setActiveClub } = useClub();
     const { matches } = useMatch();
-    const { userTotalStats, refreshGlobalStats } = useStats();
+    const { userTotalStats, refreshGlobalStats, allMatches } = useStats();
   const { theme, toggleTheme, isDark } = useTheme();
   const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
+    const isPersonalClub = isPersonalClubId(activeClub?.id || '');
 
   // Stats View State
   const [statsMode, setStatsMode] = useState<'overall' | 'day' | 'month'>('overall');
@@ -72,14 +74,14 @@ export default function HomeScreen() {
     return 'Unknown';
   };
 
-  const stats = useMemo(() => {
-    if (!matches || !matches.length || !user) return { played: 0, winRate: 0, wins: 0, losses: 0, bestPartner: null };
+    const stats = useMemo(() => {
+        if (!allMatches || !allMatches.length || !user) return { played: 0, winRate: 0, wins: 0, losses: 0, bestPartner: null };
 
     let played = 0;
     let wins = 0;
     const partnerStats: {[key: string]: {played: number, wins: number, name: string}} = {};
 
-    matches.forEach(m => {
+    allMatches.forEach(m => {
       const userId = user.id;
       const inTeam1 = m.team1.includes(userId);
       const inTeam2 = m.team2.includes(userId);
@@ -133,7 +135,7 @@ export default function HomeScreen() {
       losses: played - wins,
       bestPartner
     };
-  }, [matches, user, members, allUsers]);
+    }, [allMatches, user, members, allUsers]);
 
   const periodStats = useMemo(() => {
     // 1. Calculate Time Range
@@ -158,7 +160,7 @@ export default function HomeScreen() {
         end.setHours(23,59,59,999); // Include all matches from today
     }
 
-    const relevantMatches = matches?.filter(m => m.date >= start.getTime() && m.date <= end.getTime()) || [];
+    const relevantMatches = allMatches?.filter(m => m.date >= start.getTime() && m.date <= end.getTime()) || [];
 
     if (relevantMatches.length === 0) return null;
 
@@ -360,7 +362,7 @@ export default function HomeScreen() {
         myBestPartner, // Exposed
         topTeams // Exposed
     };
-  }, [matches, statsMode, statsDate, getPlayerName]);
+    }, [allMatches, statsMode, statsDate, getPlayerName]);
 
   const changeDate = (direction: -1 | 1) => {
       const newIn = new Date(statsDate);
@@ -419,21 +421,6 @@ export default function HomeScreen() {
              </TouchableOpacity>
 
             <View style={{flexDirection:'row', gap: 12}}>
-                <TouchableOpacity 
-                    style={[styles.iconBtn, {
-                        backgroundColor: theme.colors.primary,
-                        shadowColor: theme.colors.primary,
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.3,
-                        shadowRadius: 6,
-                        elevation: 6,
-                        transform: [{scale: 1.05}]
-                    }]} 
-                    onPress={() => navigation.navigate('GlobalStats')}
-                >
-                    <Ionicons name="stats-chart" size={20} color="#FFFFFF" />
-                </TouchableOpacity>
-
                 <TouchableOpacity style={styles.iconBtn} onPress={toggleTheme}>
                     <Ionicons name={isDark ? "sunny" : "moon"} size={20} color={theme.colors.textPrimary} />
                 </TouchableOpacity>
@@ -444,9 +431,15 @@ export default function HomeScreen() {
         </View>
 
         {/* Middle: Prominent Greeting */}
-        <View style={{ marginBottom: 16 }}>
+                <View style={{ marginBottom: 16 }}>
             <Text style={styles.greeting}>Hello, {user?.displayName?.split(' ')[0] || 'Player'}!</Text>
-            <Text style={styles.dateSubtext}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</Text>
+                        <TouchableOpacity
+                            style={[styles.careerLink, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}
+                            onPress={() => navigation.navigate('GlobalStats')}
+                        >
+                            <Ionicons name="stats-chart" size={16} color={theme.colors.primary} />
+                            <Text style={{ color: theme.colors.primary, fontWeight: '700', marginLeft: 8 }}>View Career Stats</Text>
+                        </TouchableOpacity>
         </View>
 
         {/* Bottom: Context/Club Switcher */}
@@ -458,6 +451,7 @@ export default function HomeScreen() {
                 {/* Active Clubs */}
                 {userClubs.map(club => {
                     const isActive = activeClub?.id === club.id;
+                    const isPersonal = isPersonalClubId(club.id);
                     return (
                         <TouchableOpacity 
                             key={club.id} 
@@ -467,17 +461,20 @@ export default function HomeScreen() {
                             ]}
                             onPress={() => {
                                 if (isActive) {
-                                    navigation.navigate('ClubManagement');
+                                    if (!isPersonal) navigation.navigate('ClubManagement');
                                 } else {
                                     setActiveClub(club);
                                 }
                             }}
                         >
+                            {isPersonal && (
+                                <Ionicons name="heart" size={14} color={isActive ? 'white' : theme.colors.primary} style={{marginRight: 6}} />
+                            )}
                             <Text style={[
                                 styles.clubPillText,
                                 isActive && { color: 'white', fontWeight: 'bold' }
                             ]}>{club.name}</Text>
-                            {isActive && <Ionicons name="settings-sharp" size={16} color="white" style={{marginLeft: 6, opacity: 0.9}} />}
+                            {isActive && !isPersonal && <Ionicons name="settings-sharp" size={16} color="white" style={{marginLeft: 6, opacity: 0.9}} />}
                         </TouchableOpacity>
                     );
                 })}
@@ -588,11 +585,11 @@ export default function HomeScreen() {
                 )}
            </View>
 
-           {/* 5. Horizontal Highlights Carousel */}
-           {periodStats ? (
-             <View style={{ marginBottom: 24 }}>
-                <Text style={[styles.sectionTitle, {marginLeft: 4, marginBottom: 12}]}>Performance Highlights</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 12, paddingRight: 20}}>
+                     {/* 5. Horizontal Highlights Carousel */}
+                     {!isPersonalClub && (periodStats ? (
+                         <View style={{ marginBottom: 24 }}>
+                                <Text style={[styles.sectionTitle, {marginLeft: 4, marginBottom: 12}]}>Performance Highlights</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 12, paddingRight: 20}}>
                      
                      {/* 1. Total Matches - REMOVED to avoid confusion with Global Stats
                          User found it confusing to have "Matches Played" here (Period) vs "Total Matches" at top (Global).
@@ -646,16 +643,16 @@ export default function HomeScreen() {
                         </View>
                      )}
                 </ScrollView>
-             </View>
-           ) : (
-                <View style={[styles.emptyHighlightBox, { borderColor: theme.colors.border }]}>
-                    <MaterialCommunityIcons name="calendar-blank-outline" size={48} color={theme.colors.textSecondary} style={{opacity: 0.5}} />
-                    <Text style={{color: theme.colors.textSecondary, marginTop: 12}}>No activity for this period.</Text>
-                </View>
-           )}
+                         </View>
+                     ) : (
+                                <View style={[styles.emptyHighlightBox, { borderColor: theme.colors.border }]}>
+                                        <MaterialCommunityIcons name="calendar-blank-outline" size={48} color={theme.colors.textSecondary} style={{opacity: 0.5}} />
+                                        <Text style={{color: theme.colors.textSecondary, marginTop: 12}}>No activity for this period.</Text>
+                                </View>
+                     ))}
 
            {/* 5.5 Club Dominance (Top Teams from Period) */}
-           {periodStats && (periodStats as any).topTeams && (periodStats as any).topTeams.length > 0 && (
+           {!isPersonalClub && periodStats && (periodStats as any).topTeams && (periodStats as any).topTeams.length > 0 && (
                <View style={{ marginBottom: 24 }}>
                    <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12, marginLeft: 4}}>
                         <Text style={styles.sectionTitle}>Club Dominance</Text>
@@ -714,11 +711,13 @@ export default function HomeScreen() {
              <View style={{ marginBottom: 24 }}>
                 <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, marginLeft: 4}}>
                     <Text style={[styles.sectionTitle, {marginBottom: 0}]}>My Performance</Text>
-                    <View style={{backgroundColor: theme.colors.surfaceHighlight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4}}>
-                        <Text style={{fontSize: 10, fontWeight: '700', color: theme.colors.textSecondary}}>
-                            {statsMode === 'overall' ? 'ALL TIME' : formattedDateLabel.toUpperCase()}
-                        </Text>
-                    </View>
+                    {!isPersonalClub && (
+                        <View style={{backgroundColor: theme.colors.surfaceHighlight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4}}>
+                            <Text style={{fontSize: 10, fontWeight: '700', color: theme.colors.textSecondary}}>
+                                {statsMode === 'overall' ? 'ALL TIME' : formattedDateLabel.toUpperCase()}
+                            </Text>
+                        </View>
+                    )}
                 </View>
                 
                 {/* Rich Stats Card */}
@@ -771,7 +770,7 @@ export default function HomeScreen() {
                 </View>
 
                 {/* Best Partner Card (Period) - Integrated Look */}
-                {(periodStats as any).myBestPartner && (
+                {!isPersonalClub && (periodStats as any).myBestPartner && (
                     <View style={[styles.partnerCard, { marginHorizontal: 0, marginTop: 0, marginBottom: 0 }]}>
                        <View style={{flexDirection: 'row', alignItems: 'center'}}>
                            <View style={styles.avatarSmall}>
@@ -988,6 +987,16 @@ const createStyles = (theme: Theme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     letterSpacing: -0.5,
   },
+    careerLink: {
+            alignSelf: 'flex-start',
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+            borderRadius: 999,
+            borderWidth: 1,
+            marginBottom: 14,
+    },
   profileRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
   avatar: { 
       width: 40, height: 40, borderRadius: 20, backgroundColor: theme.colors.primary, 
@@ -1129,7 +1138,6 @@ const createStyles = (theme: Theme) => StyleSheet.create({
   },
 
   // 4. Misc
-  dateSubtext: { fontSize: 12, color: theme.colors.textSecondary, fontWeight: '500' },
   addClubPill: { borderStyle: 'dashed', backgroundColor: 'transparent', width: 40, minWidth: 40, paddingHorizontal: 0 },
 
   // 5. Club Pills Overrides

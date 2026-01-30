@@ -11,6 +11,7 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme/theme';
+import { isPersonalClubId } from '../services/personalClubService';
 
 export default function ClubManagementScreen() {
   const { 
@@ -62,8 +63,9 @@ export default function ClubManagementScreen() {
   }, [activeClub?.guestPlayers]);
 
   // Simple admin check: if user is owner or has admin role in members array
-  const isOwner = activeClub?.ownerId === user?.id;
-  const isAdmin = isOwner || activeClub?.members.find(m => m.userId === user?.id)?.role === 'admin';
+  const isPersonalClub = isPersonalClubId(activeClub?.id || '');
+  const isOwner = isPersonalClub || activeClub?.ownerId === user?.id;
+  const isAdmin = !isPersonalClub && (isOwner || activeClub?.members.find(m => m.userId === user?.id)?.role === 'admin');
 
   if (!activeClub) {
     return (
@@ -393,23 +395,31 @@ export default function ClubManagementScreen() {
                       </TouchableOpacity>
                   )}
               </View>
-              <Text style={styles.sectionLabel}>Invite Code</Text>
-              
-              <TouchableOpacity onPress={copyInviteCode} style={{flexDirection: 'row', alignItems: 'center', marginTop: 8}}>
-                <Text style={styles.inviteCode}>{activeClub.inviteCode}</Text>
-                <View style={{marginLeft: 12, padding: 8, backgroundColor: theme.colors.surfaceHighlight, borderRadius: 8}}>
-                    <Text style={{fontSize: 14, color: theme.colors.primary, fontWeight: 'bold'}}>Copy</Text>
-                </View>
-              </TouchableOpacity>
+              {!isPersonalClub ? (
+                <>
+                  <Text style={styles.sectionLabel}>Invite Code</Text>
+                  
+                  <TouchableOpacity onPress={copyInviteCode} style={{flexDirection: 'row', alignItems: 'center', marginTop: 8}}>
+                    <Text style={styles.inviteCode}>{activeClub.inviteCode}</Text>
+                    <View style={{marginLeft: 12, padding: 8, backgroundColor: theme.colors.surfaceHighlight, borderRadius: 8}}>
+                        <Text style={{fontSize: 14, color: theme.colors.primary, fontWeight: 'bold'}}>Copy</Text>
+                    </View>
+                  </TouchableOpacity>
 
-              <View style={{ marginTop: 24, gap: 12 }}>
-                 <Button title="Invite from Contacts" onPress={() => navigation.navigate('InviteMembers' as never)} />
-                 <Button title="Share Code" variant="outline" onPress={shareInviteCode} />
-              </View>
+                  <View style={{ marginTop: 24, gap: 12 }}>
+                     <Button title="Invite from Contacts" onPress={() => navigation.navigate('InviteMembers' as never)} />
+                     <Button title="Share Code" variant="outline" onPress={shareInviteCode} />
+                  </View>
+                </>
+              ) : (
+                <Text style={{color: theme.colors.textSecondary, textAlign: 'center'}}>
+                  Friendly Matches club cannot send invites. You can rename it using the pencil icon.
+                </Text>
+              )}
           </Card>
 
           {/* --- JOIN REQUESTS (ADMIN ONLY) --- */}
-          {isAdmin && (
+          {!isPersonalClub && isAdmin && (
             (joinRequests && joinRequests.length > 0) || (activeClub.joinRequests && activeClub.joinRequests.length > 0)
           ) && (
               <View style={styles.section}>
@@ -435,7 +445,7 @@ export default function ClubManagementScreen() {
           )}
 
           {/* --- GUESTS LIST (ADMIN ONLY) --- */}
-          {isAdmin && (
+           {!isPersonalClub && isAdmin && (
              <View style={styles.section}>
                 <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
                     <Text style={[styles.sectionTitle, {marginBottom: 0}]}>Guest Players ({manageableGuests.length})</Text>
@@ -464,20 +474,22 @@ export default function ClubManagementScreen() {
           )}
 
           {/* --- MEMBERS LIST --- */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Members ({seededMembers.length})</Text>
-            <Card style={{padding: 0, backgroundColor: theme.colors.surface}}>
-                <FlatList
-                    data={seededMembers}
-                    renderItem={renderMember}
-                    keyExtractor={item => item.id}
-                    scrollEnabled={false}
-                    ItemSeparatorComponent={() => <View style={styles.separator} />}
-                />
-            </Card>
-          </View>
+          {!isPersonalClub && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Members ({seededMembers.length})</Text>
+              <Card style={{padding: 0, backgroundColor: theme.colors.surface}}>
+                  <FlatList
+                      data={seededMembers}
+                      renderItem={renderMember}
+                      keyExtractor={item => item.id}
+                      scrollEnabled={false}
+                      ItemSeparatorComponent={() => <View style={styles.separator} />}
+                  />
+              </Card>
+            </View>
+          )}
 
-          {isOwner && (
+            {!isPersonalClub && isOwner && (
               <View style={{ marginTop: 20, marginBottom: 40 }}>
                   <Button 
                     title="Delete Club" 
@@ -490,7 +502,7 @@ export default function ClubManagementScreen() {
               </View>
           )}
 
-          {!isOwner && activeClub && (
+            {!isPersonalClub && !isOwner && activeClub && (
               <View style={{ marginTop: 20, marginBottom: 40 }}>
                   <Button 
                     title="Leave Club" 

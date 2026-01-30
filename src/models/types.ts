@@ -8,6 +8,7 @@ export interface User {
   phoneNumber?: string;
   pushToken?: string;
   clubInvites?: string[]; // Array of Club IDs inviting the user
+  pin?: string; // 4-digit security PIN
   rank?: string | number;
 }
 
@@ -35,6 +36,7 @@ export interface MatchSet {
 export interface Match {
   id: string;
   clubId: string;
+  matchType: 'personal' | 'club' | 'tournament';
   date: number; // Timestamp
   team1: string[]; // User IDs
   team2: string[]; // User IDs

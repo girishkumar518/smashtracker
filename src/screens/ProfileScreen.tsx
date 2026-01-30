@@ -13,6 +13,7 @@ import { db } from '../services/firebaseConfig';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import Constants from 'expo-constants';
 import { Club } from '../models/types';
+import { isPersonalClubId } from '../services/personalClubService';
 
 // Safely get version
 const appVersion = Constants?.expoConfig?.version || Constants?.manifest2?.extra?.expoClient?.version || '1.0.0';
@@ -37,6 +38,7 @@ export default function ProfileScreen() {
   const [name, setName] = useState(user?.displayName || '');
   const [countryCode, setCountryCode] = useState(initialPhoneData.code);
   const [phone, setPhone] = useState(initialPhoneData.number);
+  const [pin, setPin] = useState(user?.pin || '');
   const [loading, setLoading] = useState(false);
   
   const navigation = useNavigation();
@@ -46,6 +48,23 @@ export default function ProfileScreen() {
 
   const fullPhoneNumber = `${countryCode}${phone}`;
   const isPhoneChanged = !user?.phoneNumber || user.phoneNumber !== fullPhoneNumber;
+
+  useEffect(() => {
+    const ensurePin = async () => {
+      if (!user) return;
+      if (user.pin && user.pin.length === 4) return;
+
+      const generatedPin = Math.floor(1000 + Math.random() * 9000).toString();
+      setPin(generatedPin);
+      try {
+        await updateProfile({ pin: generatedPin });
+      } catch (e) {
+        console.error('Failed to auto-generate PIN:', e);
+      }
+    };
+
+    ensurePin();
+  }, [user?.id]);
 
   const handleUpdate = async () => {
     if (!name.trim()) {
@@ -73,7 +92,13 @@ export default function ProfileScreen() {
              }
         }
 
-        await updateProfile({ displayName: name, phoneNumber: fullPhoneNumber });
+        if (!/^\d{4}$/.test(pin)) {
+          setLoading(false);
+          Alert.alert('Error', 'Security PIN must be 4 digits.');
+          return;
+        }
+
+        await updateProfile({ displayName: name, phoneNumber: fullPhoneNumber, pin });
         setLoading(false);
         
         Alert.alert('Success', 'Profile updated!', [
@@ -176,8 +201,8 @@ export default function ProfileScreen() {
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>My Clubs</Text>
                 
-                {userClubs && userClubs.length > 0 ? (
-                    userClubs.map(club => (
+                {userClubs && userClubs.filter(c => !isPersonalClubId(c.id)).length > 0 ? (
+                  userClubs.filter(c => !isPersonalClubId(c.id)).map(club => (
                         <TouchableOpacity 
                             key={club.id} 
                             style={[
@@ -250,6 +275,20 @@ export default function ProfileScreen() {
                   )}
               </View>
               <Text style={styles.helper}>Used for friends to find you.</Text>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Security PIN</Text>
+              <TextInput
+                style={styles.input}
+                value={pin}
+                onChangeText={setPin}
+                placeholder="4-digit PIN"
+                placeholderTextColor={theme.colors.textSecondary}
+                keyboardType="number-pad"
+                maxLength={4}
+              />
+              <Text style={styles.helper}>Required when friends add you in Friendly Matches.</Text>
             </View>
 
             <View style={styles.formGroup}>

@@ -10,16 +10,29 @@ import Card from '../components/Card';
 import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { findUserByEmail } from '../repositories/userRepository';
+import { updateClub } from '../repositories/clubRepository';
+import { arrayUnion } from 'firebase/firestore';
+import { ensurePersonalClub, isPersonalClubId } from '../services/personalClubService';
 
 export default function MatchSetupScreen() {
   const navigation = useNavigation<any>();
-  const { members, guests } = useClub();
+  const { activeClub, members, guests } = useClub();
   const { user } = useAuth();
   const { theme, isDark } = useTheme();
   
   const styles = useMemo(() => createStyles(theme), [theme]);
 
-  const allPlayers = useMemo(() => [...members, ...guests], [members, guests]);
+  const allPlayers = useMemo(() => {
+    const map = new Map<string, User>();
+    [...members, ...guests].forEach(p => map.set(p.id, p));
+    return Array.from(map.values());
+  }, [members, guests]);
+
+  const isFriendly = !!activeClub && isPersonalClubId(activeClub.id);
+  const trustedMemberIds = useMemo(() => {
+    return new Set(activeClub?.members.map(m => m.userId) || []);
+  }, [activeClub?.members]);
 
   const [isDoubles, setIsDoubles] = useState(false);
   const [scoreMode, setScoreMode] = useState<'live' | 'manual'>('manual');
@@ -53,12 +66,21 @@ export default function MatchSetupScreen() {
   const [selectingFor, setSelectingFor] = useState<'p1' | 'p2' | 'p3' | 'p4' | null>(null);
   const [guestName, setGuestName] = useState('');
   const [showGuestInput, setShowGuestInput] = useState(false);
+  const [showEmailInput, setShowEmailInput] = useState(false);
+  const [emailQuery, setEmailQuery] = useState('');
+  const [emailLoading, setEmailLoading] = useState(false);
+
+  const [pinModalVisible, setPinModalVisible] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pendingSelection, setPendingSelection] = useState<{ user: User; addToPersonal: boolean } | null>(null);
 
   const openSelector = (playerKey: 'p1' | 'p2' | 'p3' | 'p4') => {
     setSelectingFor(playerKey);
     setModalVisible(true);
     setShowGuestInput(false);
     setGuestName('');
+    setShowEmailInput(false);
+    setEmailQuery('');
   };
 
   const selectPlayer = (user: User) => {
@@ -68,6 +90,53 @@ export default function MatchSetupScreen() {
     if (selectingFor === 'p4') setP4(user);
     setModalVisible(false);
     setSelectingFor(null);
+  };
+
+  const addPersonalMember = async (target: User) => {
+    if (!user || !isFriendly) return;
+    const personalClub = await ensurePersonalClub(user, activeClub?.name);
+    const exists = personalClub.members.some(m => m.userId === target.id);
+    if (exists) return;
+
+    await updateClub(personalClub.id, {
+      members: arrayUnion({ userId: target.id, role: 'player', joinedAt: Date.now() }) as any
+    });
+  };
+
+  const finalizeSelection = async (target: User, addToPersonal: boolean) => {
+    selectPlayer(target);
+    if (addToPersonal) {
+      try {
+        await addPersonalMember(target);
+      } catch (e) {
+        console.warn('Failed to add personal member:', e);
+      }
+    }
+  };
+
+  const handleSelectUser = async (target: User, addToPersonal: boolean) => {
+    if (!isFriendly || target.id.startsWith('guest_') || target.id === user?.id) {
+      await finalizeSelection(target, addToPersonal);
+      return;
+    }
+
+    if (!addToPersonal) {
+      await finalizeSelection(target, false);
+      return;
+    }
+
+    if (target.pin) {
+      setPendingSelection({ user: target, addToPersonal: true });
+      setPinInput('');
+      setPinModalVisible(true);
+      return;
+    }
+
+    Alert.alert(
+      'Security Warning',
+      'This player has no PIN set. Proceeding without verification.',
+      [{ text: 'Cancel', style: 'cancel' }, { text: 'Continue', onPress: () => finalizeSelection(target, true) }]
+    );
   };
 
   const addGuest = () => {
@@ -81,6 +150,30 @@ export default function MatchSetupScreen() {
           email: '', // Placeholder
       };
       selectPlayer(guestUser);
+  };
+
+  const handleFindByEmail = async () => {
+    if (!emailQuery.trim()) return;
+    setEmailLoading(true);
+    try {
+      const result = await findUserByEmail(emailQuery.trim().toLowerCase());
+      if (!result) {
+        Alert.alert('Not Found', 'No user found with that email.');
+        return;
+      }
+
+      if (result.id === user?.id) {
+        Alert.alert('Info', 'You are already in the match.');
+        return;
+      }
+
+      await handleSelectUser({ ...result.user, id: result.id }, true);
+    } catch (e) {
+      console.error('Email lookup failed:', e);
+      Alert.alert('Error', 'Could not find user by email.');
+    } finally {
+      setEmailLoading(false);
+    }
   };
 
   const getTeams = () => {
@@ -180,6 +273,9 @@ export default function MatchSetupScreen() {
         
         {/* Header */}
         <Text style={styles.screenTitle}>New Match</Text>
+        <Text style={styles.screenSubtitle}>
+          {activeClub ? activeClub.name : 'Select Club'}{isFriendly ? ' • Friendly' : ''}
+        </Text>
         
         {/* Mode Selector - Richer Chips */}
         <View style={styles.richModeContainer}>
@@ -313,17 +409,18 @@ export default function MatchSetupScreen() {
                 <Button title="Close" variant="outline" onPress={() => setModalVisible(false)} style={{ paddingVertical: 8, paddingHorizontal: 16 }} />
                 </View>
                 
-                <View style={{padding: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.border}}>
+                <View style={{padding: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.border, gap: 12}}>
                     {!showGuestInput ? (
-                        <TouchableOpacity style={styles.richModeBtn} onPress={() => setShowGuestInput(true)}>
+                      <TouchableOpacity style={[styles.richModeBtn, styles.modalActionBtn]} onPress={() => setShowGuestInput(true)}>
                             <MaterialCommunityIcons name="account-plus" size={24} color={theme.colors.primary} />
                             <Text style={[styles.richModeText, {color: theme.colors.primary}]}>Add Guest Player</Text>
                         </TouchableOpacity>
                     ) : (
-                        <View style={{flexDirection: 'row', gap: 8}}>
+                      <View style={{flexDirection: 'row', gap: 8}}>
                             <TextInput 
                                 style={[
                                     styles.richModeBtn, 
+                            styles.modalActionBtn,
                                     { 
                                         flex: 1, 
                                         borderWidth: 1, 
@@ -341,6 +438,39 @@ export default function MatchSetupScreen() {
                             />
                             <Button title="Add" onPress={addGuest} style={{minWidth: 80}} />
                         </View>
+                    )}
+
+                    {isFriendly && (
+                      !showEmailInput ? (
+                        <TouchableOpacity style={[styles.richModeBtn, styles.modalActionBtn]} onPress={() => setShowEmailInput(true)}>
+                          <MaterialCommunityIcons name="email-search" size={24} color={theme.colors.primary} />
+                          <Text style={[styles.richModeText, {color: theme.colors.primary}]}>Find Player by Email</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={{flexDirection: 'row', gap: 8}}>
+                          <TextInput
+                            style={[
+                              styles.richModeBtn,
+                              styles.modalActionBtn,
+                              {
+                                flex: 1,
+                                borderWidth: 1,
+                                borderColor: theme.colors.border,
+                                paddingHorizontal: 12,
+                                backgroundColor: theme.colors.surface,
+                                color: theme.colors.textPrimary
+                              }
+                            ]}
+                            placeholder="player@email.com"
+                            placeholderTextColor={theme.colors.textSecondary}
+                            value={emailQuery}
+                            onChangeText={setEmailQuery}
+                            autoCapitalize="none"
+                            keyboardType="email-address"
+                          />
+                          <Button title={emailLoading ? '...' : 'Find'} onPress={handleFindByEmail} style={{minWidth: 80}} />
+                        </View>
+                      )
                     )}
                 </View>
 
@@ -361,7 +491,7 @@ export default function MatchSetupScreen() {
                 return (
                   <TouchableOpacity 
                     style={[styles.memberItem, isSelected && styles.disabledItem]} 
-                    onPress={() => !isSelected && selectPlayer(item)}
+                    onPress={() => !isSelected && handleSelectUser(item, false)}
                     disabled={isSelected}
                   >
                     <View style={[styles.avatar, isSelected && styles.disabledAvatar, isGuest && { backgroundColor: theme.colors.secondary }]}>
@@ -385,6 +515,40 @@ export default function MatchSetupScreen() {
           </View>
           </SafeAreaView>
         </Modal>
+
+        <Modal visible={pinModalVisible} animationType="slide" transparent onRequestClose={() => setPinModalVisible(false)}>
+          <View style={styles.pinOverlay}>
+            <View style={styles.pinModal}>
+              <Text style={styles.pinTitle}>Enter Security PIN</Text>
+              <Text style={styles.pinSubtitle}>Ask the player for their 4-digit PIN.</Text>
+              <TextInput
+                style={styles.pinInput}
+                value={pinInput}
+                onChangeText={setPinInput}
+                keyboardType="number-pad"
+                maxLength={4}
+                placeholder="••••"
+                placeholderTextColor={theme.colors.textSecondary}
+              />
+              <View style={{flexDirection: 'row', gap: 12, marginTop: 16}}>
+                <Button title="Cancel" variant="outline" onPress={() => setPinModalVisible(false)} style={{flex: 1}} />
+                <Button
+                  title="Verify"
+                  onPress={() => {
+                    if (!pendingSelection) return;
+                    if (pinInput === pendingSelection.user.pin) {
+                      setPinModalVisible(false);
+                      finalizeSelection(pendingSelection.user, pendingSelection.addToPersonal);
+                    } else {
+                      Alert.alert('Incorrect PIN', 'Please try again.');
+                    }
+                  }}
+                  style={{flex: 1}}
+                />
+              </View>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </View>
   );
@@ -401,6 +565,13 @@ const createStyles = (theme: Theme) => StyleSheet.create({
       color: theme.colors.textPrimary,
       marginBottom: 20,
   },
+    screenSubtitle: {
+      marginTop: -12,
+      marginBottom: 18,
+      color: theme.colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
   richModeContainer: {
       flexDirection: 'row',
       backgroundColor: theme.colors.surface,
@@ -421,6 +592,16 @@ const createStyles = (theme: Theme) => StyleSheet.create({
       borderRadius: 12,
       gap: 8,
   },
+    modalActionBtn: {
+      flex: undefined,
+      width: '100%',
+      justifyContent: 'flex-start',
+      paddingHorizontal: 14,
+        backgroundColor: theme.colors.surfaceHighlight,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+        minHeight: 48,
+    },
   richModeActive: {
       backgroundColor: theme.colors.primary,
   },
@@ -462,6 +643,42 @@ const createStyles = (theme: Theme) => StyleSheet.create({
       color: theme.colors.primary,
       fontWeight: '800',
   },
+    pinOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 24,
+    },
+    pinModal: {
+      width: '100%',
+      backgroundColor: theme.colors.surface,
+      borderRadius: 16,
+      padding: 20,
+    },
+    pinTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: theme.colors.textPrimary,
+    },
+    pinSubtitle: {
+      marginTop: 6,
+      color: theme.colors.textSecondary,
+      fontSize: 13,
+    },
+    pinInput: {
+      marginTop: 16,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: 12,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      textAlign: 'center',
+      fontSize: 18,
+      color: theme.colors.textPrimary,
+      backgroundColor: theme.colors.surfaceHighlight,
+      letterSpacing: 6,
+    },
   matchupContainer: {
       marginBottom: 32,
   },

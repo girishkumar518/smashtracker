@@ -25,6 +25,13 @@ export const findUserByPhone = async (phoneNumber: string) => {
   return { id: docItem.id, user: docItem.data() as User };
 };
 
+export const findUserByEmail = async (email: string) => {
+  const snapshot = await getDocs(query(collection(db, 'users'), where('email', '==', email.toLowerCase())));
+  if (snapshot.empty) return null;
+  const docItem = snapshot.docs[0];
+  return { id: docItem.id, user: docItem.data() as User };
+};
+
 export const addClubInviteToUser = async (userId: string, clubId: string) => {
   return updateDoc(doc(db, 'users', userId), { clubInvites: arrayUnion(clubId) });
 };

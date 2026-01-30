@@ -7,6 +7,7 @@ import { useMatch } from '../context/MatchContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme/theme';
+import { isPersonalClubId } from '../services/personalClubService';
 
 export default function MatchHistoryScreen() {
     const { activeClub, members } = useClub();
@@ -14,6 +15,8 @@ export default function MatchHistoryScreen() {
     const { user } = useAuth();
     const navigation = useNavigation<any>();
     const { theme, isDark } = useTheme();
+    const isPersonal = isPersonalClubId(activeClub?.id || '');
+    const displayedMatches = useMemo(() => (isPersonal ? matches.slice(0, 5) : matches), [isPersonal, matches]);
 
     const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -93,13 +96,13 @@ export default function MatchHistoryScreen() {
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
             
-            {!matches || matches.length === 0 ? (
+            {!displayedMatches || displayedMatches.length === 0 ? (
                 <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
                     <Text style={{ color: theme.colors.textSecondary }}>No matches found</Text>
                 </View>
             ) : (
                 <FlatList
-                    data={matches}
+                    data={displayedMatches}
                     keyExtractor={(item, index) => item.id ?? index.toString()}
                     renderItem={renderMatchItem}
                     contentContainerStyle={{ padding: 16 }}

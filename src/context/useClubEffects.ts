@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { Club, User } from '../models/types';
 import { subscribeToClubs } from '../repositories/clubRepository';
 import { getUsersByIds } from '../repositories/userRepository';
+import { buildPersonalClubStub, getPersonalClubId, isPersonalClubId } from '../services/personalClubService';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 
@@ -47,9 +48,12 @@ export const useClubEffects = ({
     const unsubscribe = subscribeToClubs((allClubs) => {
       console.log("ClubContext: Snapshot received", allClubs.length, "docs");
 
+      const personalClubId = getPersonalClubId(user.id);
       const myClubs = allClubs.filter(c => {
         const isMember = c.members && c.members.some(m => m.userId === user.id);
-        return isMember;
+        if (!isMember) return false;
+        if (isPersonalClubId(c.id) && c.id !== personalClubId) return false;
+        return true;
       });
 
       console.log("ClubContext: My Clubs found:", myClubs.length);
@@ -62,7 +66,16 @@ export const useClubEffects = ({
         user.clubInvites && user.clubInvites.includes(c.id)
       );
 
-      setUserClubs(myClubs);
+      const personalClub = allClubs.find(c => c.id === personalClubId);
+
+      const filteredClubs = myClubs.filter(c => c.id !== personalClubId);
+      if (personalClub) {
+        filteredClubs.unshift(personalClub);
+      } else {
+        filteredClubs.unshift(buildPersonalClubStub(user));
+      }
+
+      setUserClubs(filteredClubs);
       setPendingClubs(myPending);
       setInvitedClubs(myInvites);
     }, (error) => {
@@ -97,11 +110,22 @@ export const useClubEffects = ({
 
     const fetchMembers = async () => {
       console.log("ClubContext: fetchMembers started for club", activeClub.id);
+      const isPersonal = isPersonalClubId(activeClub.id);
       const memberIds = activeClub.members.map(m => m.userId);
-      const requestIds = activeClub.joinRequests || [];
+      const requestIds = isPersonal ? [] : (activeClub.joinRequests || []);
       console.log("ClubContext: Request IDs to fetch:", requestIds);
 
-      const uniqueIds = Array.from(new Set([...memberIds, ...requestIds]));
+      const crossClubMemberIds = isPersonal
+        ? userClubs
+            .filter(c => !isPersonalClubId(c.id))
+            .flatMap(c => c.members.map(m => m.userId))
+        : [];
+
+      const uniqueIds = Array.from(new Set([
+        ...memberIds,
+        ...crossClubMemberIds,
+        ...requestIds
+      ]));
 
       const reallyUniqueIds = Array.from(new Set(uniqueIds));
       console.log("ClubContext: Total unique user IDs to fetch:", reallyUniqueIds.length);
@@ -125,12 +149,21 @@ export const useClubEffects = ({
         const resolvedRequests = allUsersWithDeleted.filter(u => requestIds.includes(u.id));
         console.log("ClubContext: Resolved requests objects:", resolvedRequests.length);
 
-        setMembers(allUsersWithDeleted.filter(u => memberIds.includes(u.id)));
-        setJoinRequests(resolvedRequests);
+        if (isPersonal) {
+          setMembers(allUsersWithDeleted.filter(u => memberIds.includes(u.id) || crossClubMemberIds.includes(u.id)));
+          setJoinRequests([]);
+        } else {
+          setMembers(allUsersWithDeleted.filter(u => memberIds.includes(u.id)));
+          setJoinRequests(resolvedRequests);
+        }
         setAllUsers(allUsersWithDeleted);
       } catch (e) {
         console.error("Error fetching members:", e);
-        setJoinRequests(requestIds.map(id => ({ id, displayName: 'Error User', email: '' } as User)));
+        if (!isPersonal) {
+          setJoinRequests(requestIds.map(id => ({ id, displayName: 'Error User', email: '' } as User)));
+        } else {
+          setJoinRequests([]);
+        }
       }
 
       const guestMap = new Map<string, string>();

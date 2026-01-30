@@ -6,6 +6,7 @@ import { Theme } from '../theme/theme';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import { Ionicons } from '@expo/vector-icons';
+import { isPersonalClubId } from '../services/personalClubService';
 
 export default function InviteMembersScreen() {
   const { activeClub } = useClub();
@@ -38,6 +39,19 @@ export default function InviteMembersScreen() {
           </View>
       );
   }
+
+    if (isPersonalClubId(activeClub.id)) {
+      return (
+        <View style={styles.container}>
+            <Text style={{color: theme.colors.textPrimary, textAlign: 'center', fontWeight: '600'}}>
+              Friendly Matches
+            </Text>
+            <Text style={{color: theme.colors.textSecondary, textAlign: 'center', marginTop: 8, lineHeight: 20}}>
+              This is your personal friendly space. Use “Find Player by Email” in Match Setup to add someone for a friendly match.
+            </Text>
+        </View>
+      );
+    }
 
   return (
     <View style={styles.container}>
