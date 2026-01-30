@@ -5,6 +5,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useClub } from '../context/ClubContext';
+import { useMatch } from '../context/MatchContext';
 import { Match, MatchSet } from '../models/types';
 import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme/theme';
@@ -36,7 +37,8 @@ export default function LiveScoreScreen() {
     team1, team2, matchType = 3, isDoubles, 
     pointsPerSet = 21, goldenPoint = false, guestNames
   } = route.params as LiveScoreParams;
-  const { recordMatch, activeClub } = useClub();
+    const { activeClub } = useClub();
+    const { recordMatch } = useMatch();
 
   // Animation
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -57,6 +59,11 @@ export default function LiveScoreScreen() {
   const plusOneOpacity1 = useRef(new Animated.Value(0)).current;
   const plusOneY2 = useRef(new Animated.Value(0)).current;
   const plusOneOpacity2 = useRef(new Animated.Value(0)).current;
+  
+    // Game State
+    const [score1, setScore1] = useState(0);
+    const [score2, setScore2] = useState(0);
+    const [sets, setSets] = useState<{ t1: number, t2: number }[]>([]);
   
   // Navigation Guard: Prevent accidental exit
   const allowExitRef = useRef(false);
@@ -166,10 +173,6 @@ export default function LiveScoreScreen() {
     return nameMap;
   }, [team1, team2]);
 
-  // Game State
-  const [score1, setScore1] = useState(0);
-  const [score2, setScore2] = useState(0);
-  const [sets, setSets] = useState<{ t1: number, t2: number }[]>([]);
   const [currentSet, setCurrentSet] = useState(1);
   const [setWins1, setSetWins1] = useState(0);
   const [setWins2, setSetWins2] = useState(0);

@@ -3,12 +3,14 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Statu
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useClub } from '../context/ClubContext';
+import { useMatch } from '../context/MatchContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme/theme';
 
 export default function MatchHistoryScreen() {
-    const { activeClub, matches, members } = useClub();
+    const { activeClub, members } = useClub();
+    const { matches } = useMatch();
     const { user } = useAuth();
     const navigation = useNavigation<any>();
     const { theme, isDark } = useTheme();

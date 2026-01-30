@@ -4,13 +4,17 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useAuth } from '../context/AuthContext';
 import { useClub } from '../context/ClubContext';
+import { useMatch } from '../context/MatchContext';
+import { useStats } from '../context/StatsContext';
 import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme/theme';
 import { useNavigation } from '@react-navigation/native';
 
 export default function HomeScreen() {
   const { user, signOut } = useAuth();
-  const { activeClub, matches, members, pendingClubs, allUsers, userClubs, setActiveClub, userTotalStats, refreshGlobalStats } = useClub();
+    const { activeClub, members, pendingClubs, allUsers, userClubs, setActiveClub } = useClub();
+    const { matches } = useMatch();
+    const { userTotalStats, refreshGlobalStats } = useStats();
   const { theme, toggleTheme, isDark } = useTheme();
   const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
@@ -317,7 +321,7 @@ export default function HomeScreen() {
     let longestStreak = { name: '-', val: 0 };
 
     // Find PERSONAL Best Partner
-    let myBestPartner = null;
+    let myBestPartner: { played: number; wins: number; name: string; rate: number } | null = null;
     let maxRate = -1;
     Object.values(myPartners).forEach(p => {
         const rate = p.wins / p.played;

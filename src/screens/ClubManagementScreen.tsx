@@ -4,6 +4,8 @@ import { useNavigation } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { useClub } from '../context/ClubContext';
+import { useMatch } from '../context/MatchContext';
+import { useStats } from '../context/StatsContext';
 import { useAuth } from '../context/AuthContext'; 
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -13,7 +15,6 @@ import { Theme } from '../theme/theme';
 export default function ClubManagementScreen() {
   const { 
     activeClub, 
-    seededMembers, 
     joinRequests, 
     approveRequest, 
     rejectRequest, 
@@ -21,13 +22,14 @@ export default function ClubManagementScreen() {
     deleteClub,
     leaveClub,
     guests, // Context-provided guests (Merged from History + Active) - NOT USED for Management List to avoid "undeletable" ghosts
-    matches,
     updateGuestToUser,
     addGuestPlayer,
     removeGuestPlayer,
     updateClubName,
     toggleAdminRole
   } = useClub();
+  const { matches } = useMatch();
+  const { seededMembers } = useStats();
   const { user } = useAuth();
   const navigation = useNavigation();
   const [selectedMember, setSelectedMember] = useState<any>(null);

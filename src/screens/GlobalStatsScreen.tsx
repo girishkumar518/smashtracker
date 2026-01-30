@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useClub } from '../context/ClubContext';
+import { useStats } from '../context/StatsContext';
 import { Theme } from '../theme/theme';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
@@ -12,7 +13,8 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export default function GlobalStatsScreen() {
     const { theme, isDark } = useTheme();
-    const { userTotalStats, allMatches, members, allUsers, activeClub } = useClub();
+    const { members, allUsers, activeClub } = useClub();
+    const { userTotalStats, allMatches } = useStats();
     const { user } = useAuth();
     const navigation = useNavigation<any>();
     const [visibleCount, setVisibleCount] = React.useState(5);

@@ -4,6 +4,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import { useClub } from '../context/ClubContext';
+import { useMatch } from '../context/MatchContext';
 import { Match, MatchSet, User } from '../models/types';
 import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme/theme';
@@ -24,7 +25,8 @@ export default function ManualScoreScreen() {
   const navigation = useNavigation();
   const params = route.params as ManualScoreParams;
   const { isEdit, match } = params;
-  const { recordMatch, activeClub, deleteMatch, allUsers, members } = useClub();
+  const { activeClub, allUsers, members } = useClub();
+  const { recordMatch, deleteMatch } = useMatch();
   const { theme, isDark } = useTheme();
 
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -397,6 +399,6 @@ const createStyles = (theme: Theme) => StyleSheet.create({
     marginHorizontal: 12,
     fontSize: 24,
     fontWeight: 'bold',
-    color: theme.colors.disabled, // Was #CBD5E0
+    color: theme.colors.textSecondary, // Was #CBD5E0
   },
 });
