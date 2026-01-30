@@ -2,7 +2,7 @@
   "expo": {
     "name": "SmashTracker",
     "slug": "smashtracker",
-    "version": "3.0.1",
+    "version": "4.0.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -23,7 +23,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.gk.smashtracker",
-      "versionCode": 20,
+      "versionCode": 21,
       "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
