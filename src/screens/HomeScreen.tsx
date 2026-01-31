@@ -11,6 +11,7 @@ import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme/theme';
 import { isPersonalClubId } from '../services/personalClubService';
 import ClubSelectorModal from './Home/components/ClubSelectorModal';
+import { AdBanner } from '../components/AdBanner';
 
 export default function HomeScreen() {
     const { user, signOut } = useAuth();
@@ -965,6 +966,9 @@ export default function HomeScreen() {
                         <Text style={styles.footerText}>Developed by GK Software Ltd</Text>
                     </View>
                 </Animated.View>
+                {/* Ad Placement: Bottom of Home Feed */}
+                {/* Will be hidden for Premium users in the future by passing isPremium={user.isPremium} */}
+                <AdBanner style={{ marginBottom: 20 }} />
             </ScrollView>
         </SafeAreaView >
     );
@@ -1159,12 +1163,12 @@ const createStyles = (theme: Theme) => StyleSheet.create({
     headerThumbnail: {
         flexDirection: 'column', // Explicit column layout
         backgroundColor: theme.colors.surface,
-        marginHorizontal: 16,
+        marginHorizontal: 10, // Wider (Reduced margin from 16)
         marginTop: 12,
-        paddingBottom: 20,
-        paddingTop: 20,
-        paddingHorizontal: 20,
-        borderRadius: 24,
+        paddingBottom: 28, // Longer (Increased from 20)
+        paddingTop: 28,   // Longer (Increased from 20)
+        paddingHorizontal: 22,
+        borderRadius: 26,
         // Shadow/Elevation
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
