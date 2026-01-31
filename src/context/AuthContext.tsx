@@ -14,7 +14,7 @@ interface AuthContextType {
   signIn: (email: string, password?: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
-  updateProfile: (data: { displayName?: string, phoneNumber?: string, pin?: string }) => Promise<void>;
+  updateProfile: (data: { displayName?: string, phoneNumber?: string, pin?: string, defaultClubId?: string }) => Promise<void>;
   deleteAccount: () => Promise<void>;
 }
 
@@ -52,6 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             displayName: existingData.displayName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Player',
             phoneNumber: existingData.phoneNumber, // Persist phone number from Firestore
             pin: existingData.pin,
+            defaultClubId: existingData.defaultClubId,
           };
 
           setUser(userData);
@@ -59,30 +60,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // 3. Sync/Update Firestore (Background)
           // Independent of Push Notification success
           (async () => {
-              let token = null;
-              try {
-                  token = await registerForPushNotificationsAsync();
-              } catch (e) {
-                  console.warn("Push token fetch failed (ignoring):", e);
-              }
+            let token = null;
+            try {
+              token = await registerForPushNotificationsAsync();
+            } catch (e) {
+              console.warn("Push token fetch failed (ignoring):", e);
+            }
 
-              const updates: any = { ...userData }; // Start with current state
-              if (token) updates.pushToken = token;
-              
-              // Sanitize updates to remove undefined values which Firestore hates
-              Object.keys(updates).forEach(key => updates[key] === undefined && delete updates[key]);
+            const updates: any = { ...userData }; // Start with current state
+            if (token) updates.pushToken = token;
 
-              // Always write to Firestore to ensure user exists
-              await setDoc(userDocRef, updates, { merge: true });
+            // Sanitize updates to remove undefined values which Firestore hates
+            Object.keys(updates).forEach(key => updates[key] === undefined && delete updates[key]);
+
+            // Always write to Firestore to ensure user exists
+            await setDoc(userDocRef, updates, { merge: true });
           })().catch(e => console.error("Error saving user to Firestore:", e));
         } catch (error) {
-           console.error("Error fetching user profile:", error);
-           // Fallback if firestore fails
-           setUser({
-              id: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              displayName: firebaseUser.displayName || 'Player'
-           });
+          console.error("Error fetching user profile:", error);
+          // Fallback if firestore fails
+          setUser({
+            id: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            displayName: firebaseUser.displayName || 'Player',
+            defaultClubId: (firebaseUser as any).defaultClubId // unlikely to exist on raw obj but safe handling
+          });
         }
       } else {
         setUser(null);
@@ -100,34 +102,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Try to sign in or sign up
         try {
           const userCredential = await signInWithEmailAndPassword(auth, email, password);
-          
+
           if (!userCredential.user.emailVerified) {
-             await firebaseSignOut(auth);
-             alert("Email not verified.\n\nPlease check your inbox for the activation link.");
-             setIsLoading(false);
-             return;
+            await firebaseSignOut(auth);
+            alert("Email not verified.\n\nPlease check your inbox for the activation link.");
+            setIsLoading(false);
+            return;
           }
 
         } catch (error: any) {
           // If user not found, try to create new account (Simplified Flow)
           if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-             try {
-                const newCred = await createUserWithEmailAndPassword(auth, email, password);
-                await sendEmailVerification(newCred.user);
-                await firebaseSignOut(auth); // Force logout
-                alert("Account created successfully!\n\nAn activation link has been sent to " + email + ".\nPlease verify your email before logging in.");
-                setIsLoading(false);
-                return;
-             } catch (createError: any) {
-                 if (createError.code === 'auth/email-already-in-use') {
-                     // This implies the first sign-in failed due to wrong password (if invalid-credential covers both)
-                     alert("Incorrect password.");
-                 } else {
-                     throw createError;
-                 }
-             }
+            try {
+              const newCred = await createUserWithEmailAndPassword(auth, email, password);
+              await sendEmailVerification(newCred.user);
+              await firebaseSignOut(auth); // Force logout
+              alert("Account created successfully!\n\nAn activation link has been sent to " + email + ".\nPlease verify your email before logging in.");
+              setIsLoading(false);
+              return;
+            } catch (createError: any) {
+              if (createError.code === 'auth/email-already-in-use') {
+                // This implies the first sign-in failed due to wrong password (if invalid-credential covers both)
+                alert("Incorrect password.");
+              } else {
+                throw createError;
+              }
+            }
           } else {
-             throw error;
+            throw error;
           }
         }
       } else {
@@ -144,29 +146,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     try {
       if (Platform.OS === 'web') {
-          // console.log("Starting Google Sign In (Web)...");
-          const provider = new GoogleAuthProvider();
-          await signInWithPopup(auth, provider);
-          // console.log("Firebase Web Sign In Success");
+        // console.log("Starting Google Sign In (Web)...");
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
+        // console.log("Firebase Web Sign In Success");
       } else {
-          // console.log("Starting Google Sign In (Native)...");
-          await GoogleSignin.hasPlayServices();
-          
-          // console.log("Requesting Google Sign In...");
-          const response = await GoogleSignin.signIn();
-          
-          const idToken = response.data?.idToken;
-          if (!idToken) {
-              console.error("No ID Token in response", response);
-              throw new Error('No ID token found in Google response');
-          }
-          
-          console.log("Got ID Token, signing into Firebase...");
-          const googleCredential = GoogleAuthProvider.credential(idToken);
-          await signInWithCredential(auth, googleCredential);
-          console.log("Firebase Sign In Success");
+        // console.log("Starting Google Sign In (Native)...");
+        await GoogleSignin.hasPlayServices();
+
+        // console.log("Requesting Google Sign In...");
+        const response = await GoogleSignin.signIn();
+
+        const idToken = response.data?.idToken;
+        if (!idToken) {
+          console.error("No ID Token in response", response);
+          throw new Error('No ID token found in Google response');
+        }
+
+        console.log("Got ID Token, signing into Firebase...");
+        const googleCredential = GoogleAuthProvider.credential(idToken);
+        await signInWithCredential(auth, googleCredential);
+        console.log("Firebase Sign In Success");
       }
-      
+
     } catch (error: any) {
       console.error("Google Sign In Error:", error);
       alert('Login Error: ' + (error.message || JSON.stringify(error)));
@@ -179,9 +181,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await firebaseSignOut(auth);
       if (Platform.OS !== 'web') {
         try {
-            await GoogleSignin.signOut();
+          await GoogleSignin.signOut();
         } catch (e) {
-            console.log("Google SignOut Error (ignoring):", e);
+          console.log("Google SignOut Error (ignoring):", e);
         }
       }
       setUser(null);
@@ -190,20 +192,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const updateProfile = async (data: { displayName?: string, phoneNumber?: string, pin?: string }) => {
+  const updateProfile = async (data: { displayName?: string, phoneNumber?: string, pin?: string, defaultClubId?: string }) => {
     if (user) {
       // Optimistic update
       setUser({ ...user, ...data });
       // Firestore update
       try {
-          // Use setDoc with merge: true to ensure document is created if it doesn't exist
-          const validData = { ...data };
-          Object.keys(validData).forEach(key => (validData as any)[key] === undefined && delete (validData as any)[key]);
+        // Use setDoc with merge: true to ensure document is created if it doesn't exist
+        const validData = { ...data };
+        Object.keys(validData).forEach(key => (validData as any)[key] === undefined && delete (validData as any)[key]);
 
-          await setDoc(doc(db, 'users', user.id), validData, { merge: true });
+        await setDoc(doc(db, 'users', user.id), validData, { merge: true });
       } catch (e: any) {
-          console.error("Profile Update Error", e);
-          alert("Failed to save profile changes: " + e.message);
+        console.error("Profile Update Error", e);
+        alert("Failed to save profile changes: " + e.message);
       }
     }
   };

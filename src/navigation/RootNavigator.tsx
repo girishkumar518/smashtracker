@@ -13,7 +13,7 @@ import JoinClubScreen from '../screens/JoinClubScreen';
 import ClubManagementScreen from '../screens/ClubManagementScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import MatchOverviewScreen from '../screens/MatchOverviewScreen';
-import InviteMembersScreen from '../screens/InviteMembersScreen';
+
 import MatchHistoryScreen from '../screens/MatchHistoryScreen';
 import GlobalStatsScreen from '../screens/GlobalStatsScreen';
 
@@ -47,7 +47,7 @@ export default function RootNavigator() {
             <Stack.Screen name="GlobalStats" component={GlobalStatsScreen} options={{ headerShown: false }} />
             <Stack.Screen name="ManualScore" component={ManualScoreScreen} options={{ headerShown: true, title: 'Record Result' }} />
             <Stack.Screen name="ClubManagement" component={ClubManagementScreen} options={{ headerShown: true, title: 'Manage Club' }} />
-            <Stack.Screen name="InviteMembers" component={InviteMembersScreen} options={{ headerShown: true, title: 'Invite From Contacts' }} />
+
           </Stack.Group>
         ) : (
           // Auth Stack (Unauthenticated)

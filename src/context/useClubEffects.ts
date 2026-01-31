@@ -88,7 +88,17 @@ export const useClubEffects = ({
   // Separate effect to handle auto-selection
   useEffect(() => {
     if (userClubs.length > 0 && !activeClub) {
+      // Logic for Initial Selection
+      if (user?.defaultClubId) {
+        const defaultClub = userClubs.find(c => c.id === user.defaultClubId);
+        if (defaultClub) {
+          setActiveClub(defaultClub);
+          return;
+        }
+      }
+      // Fallback to first club if no default or default not found
       setActiveClub(userClubs[0]);
+
     } else if (activeClub) {
       const stillMember = userClubs.find(c => c.id === activeClub.id);
       if (!stillMember) {
@@ -99,7 +109,7 @@ export const useClubEffects = ({
         }
       }
     }
-  }, [userClubs]);
+  }, [userClubs, user?.defaultClubId]); // Dependent on user.defaultClubId too
 
   // 2. Fetch Matches & Members for Active Club
   useEffect(() => {
@@ -117,8 +127,8 @@ export const useClubEffects = ({
 
       const crossClubMemberIds = isPersonal
         ? userClubs
-            .filter(c => !isPersonalClubId(c.id))
-            .flatMap(c => c.members.map(m => m.userId))
+          .filter(c => !isPersonalClubId(c.id))
+          .flatMap(c => c.members.map(m => m.userId))
         : [];
 
       const uniqueIds = Array.from(new Set([

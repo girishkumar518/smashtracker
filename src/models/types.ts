@@ -10,6 +10,7 @@ export interface User {
   clubInvites?: string[]; // Array of Club IDs inviting the user
   pin?: string; // 4-digit security PIN
   rank?: string | number;
+  defaultClubId?: string; // ID of the club to load by default
 }
 
 export interface ClubMember {

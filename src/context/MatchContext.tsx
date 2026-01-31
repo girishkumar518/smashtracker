@@ -113,8 +113,7 @@ export const MatchProvider = ({ children }: { children: ReactNode }) => {
 
 			const recipients = members.filter(m =>
 				playerIds.includes(m.id) &&
-				m.pushToken &&
-				m.id !== user?.id
+				m.pushToken
 			);
 
 			if (recipients.length > 0) {

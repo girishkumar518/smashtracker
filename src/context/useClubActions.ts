@@ -1,11 +1,12 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { Club, User } from '../models/types';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { addClub, deleteClub as deleteClubDoc, getClubsByInviteCode, updateClub } from '../repositories/clubRepository';
+import { addClub, deleteClub as deleteClubDoc, getClubsByInviteCode, updateClub, setClubById } from '../repositories/clubRepository';
 import { deleteMatch as deleteMatchDoc, getMatchesByClub } from '../repositories/matchRepository';
 import { addClubInviteToUser, findUserByPhone, removeClubInviteFromUser } from '../repositories/userRepository';
 import { arrayRemove, arrayUnion } from 'firebase/firestore';
 import { sendPushNotification } from '../services/notificationService';
+import { isPersonalClubId, buildPersonalClubStub } from '../services/personalClubService';
 
 interface ClubActionsParams {
   user: User | null | undefined;
@@ -228,7 +229,26 @@ export const useClubActions = ({
     try {
       await updateClub(activeClub.id, { name: name });
       setActiveClub(prev => prev ? { ...prev, name } : null);
-    } catch (e) {
+    } catch (e: any) {
+      // Logic for Personal Club (Friendly Matches)
+      // If document doesn't exist yet (not persisted), create it now with the new name.
+      if (isPersonalClubId(activeClub.id) && user) {
+        // We assume 'not-found' error or similar, but safe to just try creating if update fails for personal club
+        console.log("updateClubName failed, attempting to create Personal Club doc:", e.message);
+
+        const stub = buildPersonalClubStub(user, name);
+        // Ensure we preserve any other in-memory state if possible, but usually stub is fine for new doc
+        const { id, ...data } = stub;
+        try {
+          await setClubById(activeClub.id, data);
+          setActiveClub(prev => prev ? { ...prev, name } : null);
+          return;
+        } catch (createError) {
+          console.error("Failed to create personal club doc:", createError);
+          throw createError;
+        }
+      }
+
       console.error("Error updating club name:", e);
       throw e;
     }
